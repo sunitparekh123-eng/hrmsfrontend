@@ -13,161 +13,283 @@ import {
     Mail,
     Smartphone,
     MapPin,
-    Star
+    Star,
+    Banknote,
+    Fingerprint,
+    ShieldAlert
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useRole } from "@/context/RoleContext";
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
-const steps = ["Basic Identity", "Operational Role", "Documentation", "Verify & Finish"];
+const steps = ["Personal Info", "Job Details", "Bank & PF", "Documentation", "Review"];
 
 export default function OnboardingPage() {
+    const { availableRoles } = useRole();
+    const router = useRouter();
     const [currentStep, setCurrentStep] = useState(0);
+    const [formData, setFormData] = useState({
+        name: "",
+        email: "",
+        phone: "",
+        dob: "",
+        doj: "",
+        aadhaar: "",
+        pan: "",
+        location: "Indore",
+        role: "EMPLOYEE",
+        dept: "",
+        jobTitle: "",
+        bankName: "",
+        accountNo: "",
+        ifsc: "",
+        pfNo: "",
+        uan: "",
+        licDetails: ""
+    });
+
+    const updateField = (id: string, value: string) => {
+        setFormData(prev => ({ ...prev, [id]: value }));
+    };
+
+    const handleFinish = () => {
+        // Save to localStorage for demo persistence
+        const existing = JSON.parse(localStorage.getItem('hrms_employees') || '[]');
+        const newEmployee = {
+            ...formData,
+            id: `EMP${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+            status: "Active",
+            color: "emerald"
+        };
+        localStorage.setItem('hrms_employees', JSON.stringify([...existing, newEmployee]));
+        router.push('/employees');
+    };
 
     return (
-        <div className="max-w-4xl mx-auto space-y-12 pb-20">
-            {/* Header section with icon */}
-            <div className="flex flex-col items-center text-center space-y-4 pt-8">
-                <div className="h-16 w-16 bg-[#D1FAE5] rounded-[2rem] flex items-center justify-center shadow-sm">
-                    <UserPlus className="h-8 w-8 text-emerald-600" />
-                </div>
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-900">Personnel Recruitment</h1>
-                    <p className="text-sm font-medium text-slate-400 mt-2 italic">Standard deployment sequence for newly joined units.</p>
-                </div>
-            </div>
-
-            {/* Stepper */}
-            <div className="relative flex justify-between items-center px-12">
-                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-slate-100 -translate-y-1/2 z-0" />
-                {steps.map((step, i) => (
-                    <div key={i} className="relative z-10 flex flex-col items-center gap-3">
-                        <div className={cn(
-                            "h-10 w-10 rounded-2xl flex items-center justify-center font-bold text-sm transition-all shadow-sm border-4 border-[#F8F9FA]",
-                            currentStep >= i ? "bg-[#D9F99D] text-slate-900" : "bg-white text-slate-300"
-                        )}>
-                            {currentStep > i ? <CheckCircle className="h-5 w-5" /> : i + 1}
-                        </div>
-                        <span className={cn(
-                            "text-[10px] font-bold uppercase tracking-widest",
-                            currentStep >= i ? "text-slate-900" : "text-slate-300"
-                        )}>{step}</span>
+        <ProtectedRoute module="EMPLOYEES" action="CREATE">
+            <div className="max-w-4xl mx-auto space-y-12 pb-20 px-4 md:px-0">
+                {/* Header section with icon */}
+                <div className="flex flex-col items-center text-center space-y-3 pt-6">
+                    <div className="h-14 w-14 bg-slate-900 rounded-[1.5rem] flex items-center justify-center shadow-xl">
+                        <UserPlus className="h-7 w-7 text-[#D9F99D]" />
                     </div>
-                ))}
-            </div>
-
-            {/* Main Form Content */}
-            <Card className="border-none shadow-sm rounded-[3rem] bg-white p-6 md:p-10">
-                <CardHeader className="px-0 pt-0 pb-10 border-b border-dashed border-slate-100">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle className="text-2xl font-bold text-slate-900 italic underline underline-offset-8 decoration-[#D9F99D] decoration-4">{steps[currentStep]}</CardTitle>
-                            <CardDescription className="text-xs font-bold text-slate-400 mt-4 uppercase tracking-wider">Step {currentStep + 1} of 4</CardDescription>
-                        </div>
-                        <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center">
-                            <Star className="h-5 w-5 text-[#D9F99D] fill-[#D9F99D]" />
-                        </div>
+                    <div>
+                        <h1 className="text-2xl font-black text-slate-900 italic uppercase tracking-tighter underline underline-offset-8 decoration-[#D9F99D] decoration-2">Add New Employee</h1>
+                        <p className="text-[9px] font-black text-slate-400 mt-6 uppercase tracking-[0.3em]">Fill in the details to add a new person to the team.</p>
                     </div>
-                </CardHeader>
+                </div>
 
-                <CardContent className="px-0 py-12 min-h-[400px]">
-                    {currentStep === 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                            {[
-                                { label: 'Operational Display Name', id: 'name', placeholder: 'Walt Whitman', icon: UserPlus },
-                                { label: 'Primary Communications Hash', id: 'email', placeholder: 'walt@antigravity.io', icon: Mail },
-                                { label: 'Direct Mobile Vector', id: 'phone', placeholder: '+91 999 888 7777', icon: Smartphone },
-                                { label: 'Physical Coordinate (Base)', id: 'address', placeholder: 'Sector 4, Space-Time Loop', icon: MapPin },
-                            ].map((field) => (
-                                <div key={field.id} className="space-y-3">
-                                    <Label htmlFor={field.id} className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <field.icon className="h-3.5 w-3.5" /> {field.label}
-                                    </Label>
-                                    <Input id={field.id} placeholder={field.placeholder} className="h-14 bg-slate-50 border-none rounded-2xl px-6 font-bold text-sm focus-visible:ring-2 focus-visible:ring-[#D9F99D] transition-all" />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {currentStep === 2 && (
-                        <div className="space-y-10">
-                            <div className="border-4 border-dashed border-slate-100 rounded-[2.5rem] p-16 text-center space-y-6 bg-slate-50/30 hover:bg-[#D9F99D]/5 hover:border-[#D9F99D] transition-all group flex flex-col items-center">
-                                <div className="h-20 w-20 bg-white rounded-3xl shadow-sm flex items-center justify-center border border-slate-100 group-hover:scale-110 transition-transform">
-                                    <Upload className="h-10 w-10 text-slate-400" />
-                                </div>
-                                <div className="space-y-2">
-                                    <p className="text-xl font-bold text-slate-900 italic">Drop Identity Protocols here</p>
-                                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Aadhar • PAN • Offer Letter (PDF/PNG)</p>
-                                </div>
-                                <Button className="bg-[#D9F99D] text-slate-900 font-bold hover:bg-[#c8ea8a] px-10 rounded-xl h-12 shadow-sm">Select Files</Button>
+                {/* Stepper */}
+                <div className="relative flex justify-between items-center px-6 md:px-12">
+                    <div className="absolute top-1/2 left-0 w-full h-[1px] bg-slate-100 -translate-y-1/2 z-0" />
+                    {steps.map((step, i) => (
+                        <div key={i} className="relative z-10 flex flex-col items-center gap-3">
+                            <div className={cn(
+                                "h-10 w-10 md:h-11 md:w-11 rounded-2xl flex items-center justify-center font-black text-xs transition-all duration-500 border-4",
+                                currentStep >= i ? "bg-slate-900 border-white text-[#D9F99D] shadow-lg" : "bg-white border-slate-50 text-slate-200"
+                            )}>
+                                {currentStep > i ? <CheckCircle className="h-5 w-5" /> : i + 1}
                             </div>
+                            <span className={cn(
+                                "text-[7px] md:text-[8px] font-black uppercase tracking-widest hidden md:block",
+                                currentStep >= i ? "text-slate-900" : "text-slate-300"
+                            )}>{step}</span>
+                        </div>
+                    ))}
+                </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {['Govt Identity', 'Tax Registry', 'Joining Kit'].map((doc, i) => (
-                                    <div key={i} className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-2xl group hover:border-[#D9F99D] shadow-sm transition-all">
-                                        <div className="flex items-center gap-3">
-                                            <FileText className="h-5 w-5 text-slate-300 group-hover:text-[#D9F99D]" />
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{doc}</span>
-                                        </div>
-                                        <Badge className="bg-slate-50 text-slate-400 border-none font-bold text-[8px] h-5">PENDING</Badge>
+                {/* Main Form Content */}
+                <Card className="border-none shadow-sm rounded-[2.5rem] bg-white p-6 md:p-12">
+                    <CardHeader className="px-0 pt-0 pb-10 border-b border-slate-50">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <CardTitle className="text-2xl font-black text-slate-900 italic tracking-tighter uppercase">{steps[currentStep]}</CardTitle>
+                                <CardDescription className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Step {currentStep + 1} of {steps.length}</CardDescription>
+                            </div>
+                            <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center">
+                                <ShieldCheck className="h-6 w-6 text-slate-200" />
+                            </div>
+                        </div>
+                    </CardHeader>
+
+                    <CardContent className="px-0 py-10 min-h-[400px]">
+                        {currentStep === 0 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 animate-in fade-in slide-in-from-right-4">
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">Full Name</Label>
+                                    <Input placeholder="e.g. Walt Whitman" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest" value={formData.name} onChange={e => updateField('name', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">Email Address</Label>
+                                    <Input placeholder="walt@hrms.io" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs lowercase" value={formData.email} onChange={e => updateField('email', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">Date of Birth</Label>
+                                    <Input type="date" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs" value={formData.dob} onChange={e => updateField('dob', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">Date of Joining</Label>
+                                    <Input type="date" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs" value={formData.doj} onChange={e => updateField('doj', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">Aadhaar Number</Label>
+                                    <Input placeholder="0000 0000 0000" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs tracking-widest" value={formData.aadhaar} onChange={e => updateField('aadhaar', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">PAN Number</Label>
+                                    <Input placeholder="ABCDE1234F" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest" value={formData.pan} onChange={e => updateField('pan', e.target.value)} />
+                                </div>
+                            </div>
+                        )}
+
+                        {currentStep === 1 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 animate-in fade-in slide-in-from-right-4">
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Office Location</Label>
+                                    <select className="w-full h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none" value={formData.location} onChange={e => updateField('location', e.target.value)}>
+                                        <option value="Indore">Indore Hub</option>
+                                        <option value="Bhopal">Bhopal Terminal</option>
+                                        <option value="Satna">Satna Unit</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</Label>
+                                    <select className="w-full h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none" value={formData.role} onChange={e => updateField('role', e.target.value)}>
+                                        {availableRoles.map(r => (
+                                            <option key={r.name} value={r.name}>{r.name.replace(/_/g, ' ')}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Job Title</Label>
+                                    <Input placeholder="e.g. Senior Manager" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest" value={formData.jobTitle} onChange={e => updateField('jobTitle', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department</Label>
+                                    <Input placeholder="e.g. Operations" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest" value={formData.dept} onChange={e => updateField('dept', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Phone Number</Label>
+                                    <Input placeholder="+91 00000 00000" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs" value={formData.phone} onChange={e => updateField('phone', e.target.value)} />
+                                </div>
+                            </div>
+                        )}
+
+                        {currentStep === 2 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 animate-in fade-in slide-in-from-right-4">
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Name</Label>
+                                    <Input placeholder="e.g. HDFC Bank" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest" value={formData.bankName} onChange={e => updateField('bankName', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Account Number</Label>
+                                    <Input placeholder="0000 0000 0000" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs tracking-widest" value={formData.accountNo} onChange={e => updateField('accountNo', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IFSC Code</Label>
+                                    <Input placeholder="HDFC0001234" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest" value={formData.ifsc} onChange={e => updateField('ifsc', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PF Number</Label>
+                                    <Input placeholder="PF/IND/001" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest" value={formData.pfNo} onChange={e => updateField('pfNo', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">UAN ID</Label>
+                                    <Input placeholder="1000 0000 0000" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs tracking-widest" value={formData.uan} onChange={e => updateField('uan', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">LIC Policy</Label>
+                                    <Input placeholder="e.g. Policy No: 12345" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest" value={formData.licDetails} onChange={e => updateField('licDetails', e.target.value)} />
+                                </div>
+                            </div>
+                        )}
+
+                        {currentStep === 3 && (
+                            <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+                                <div className="border-4 border-dashed border-slate-50 rounded-[2rem] p-16 text-center space-y-6 bg-slate-50/20 hover:bg-slate-50 hover:border-slate-200 transition-all group flex flex-col items-center">
+                                    <div className="h-16 w-16 bg-white rounded-[1.2rem] shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <Upload className="h-8 w-8 text-slate-300" />
                                     </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                                    <div className="space-y-2">
+                                        <h3 className="text-xl font-black text-slate-900 italic uppercase">Upload Documents</h3>
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Aadhar • PAN • Bank Proof • Photos</p>
+                                    </div>
+                                    <Button className="bg-slate-900 text-white font-black hover:bg-black px-12 h-12 rounded-xl shadow-xl uppercase text-[10px] tracking-widest">Select Files</Button>
+                                </div>
 
-                    {currentStep === 1 && (
-                        <div className="flex flex-col items-center justify-center space-y-6 text-center h-full">
-                            <div className="h-24 w-24 bg-[#E0E7FF] rounded-full flex items-center justify-center">
-                                <Briefcase className="h-10 w-10 text-blue-600" />
-                            </div>
-                            <p className="text-lg font-bold text-slate-900 italic">Workforce Allocation Profile</p>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest max-w-sm">Assign departments, reporting managers, and temporal shift schedules.</p>
-                        </div>
-                    )}
-
-                    {currentStep === 3 && (
-                        <div className="flex flex-col items-center justify-center space-y-8 text-center h-full">
-                            <div className="animate-bounce">
-                                <ShieldCheck className="h-20 w-20 text-emerald-500" />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-3xl font-black text-slate-900">Final Verification</h3>
-                                <p className="text-sm font-medium text-slate-400 italic">System integrity check passed. Personnel ready for registry ingestion.</p>
-                            </div>
-                            <div className="p-8 bg-[#D1FAE5]/60 rounded-3xl border border-emerald-100 text-left max-w-md w-full">
-                                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-4">Registration Summary</p>
-                                <div className="space-y-2">
-                                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Registry Name:</span> <span className="font-bold text-slate-900 uppercase tracking-tight italic">Walt Whitman</span></div>
-                                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Operational Node:</span> <span className="font-bold text-slate-900">Creative Lead</span></div>
-                                    <div className="flex justify-between text-xs"><span className="text-slate-500 font-bold">Shift ID:</span> <span className="font-bold text-slate-900">G-001 (General)</span></div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                    {['Aadhar', 'PAN', 'Passbook', 'Photo'].map((doc, i) => (
+                                        <div key={i} className="flex flex-col items-center gap-4 p-6 bg-white border-2 border-slate-50 rounded-2xl group hover:border-slate-900 shadow-sm transition-all text-center">
+                                            <div className="h-10 w-10 rounded-xl bg-slate-50 flex items-center justify-center group-hover:bg-slate-900 transition-colors">
+                                                <FileText className="h-5 w-5 text-slate-200 group-hover:text-[#D9F99D]" />
+                                            </div>
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-900">{doc}</span>
+                                            <Badge className="bg-slate-50 text-slate-300 border-none font-black text-[7px] h-5 tracking-widest px-3">PENDING</Badge>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        </div>
-                    )}
-                </CardContent>
+                        )}
 
-                <CardFooter className="px-0 pb-0 pt-10 border-t border-slate-100 flex justify-between items-center bg-transparent">
-                    <Button
-                        variant="ghost"
-                        onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
-                        disabled={currentStep === 0}
-                        className="h-14 px-8 rounded-2xl gap-3 text-slate-400 hover:text-slate-900 font-bold uppercase tracking-widest text-[11px] transition-all"
-                    >
-                        <ArrowLeft className="h-4 w-4" /> Go Back
-                    </Button>
-                    <Button
-                        onClick={() => setCurrentStep(Math.min(steps.length - 1, currentStep + 1))}
-                        className="h-14 px-12 rounded-[1.5rem] bg-slate-900 text-white font-bold uppercase tracking-[0.2em] text-[11px] shadow-xl hover:bg-black transition-all flex items-center gap-3"
-                    >
-                        {currentStep === steps.length - 1 ? "Complete Registry" : "Advance Protocol"} <ChevronRight className="h-4 w-4" />
-                    </Button>
-                </CardFooter>
-            </Card>
-        </div>
+                        {currentStep === 4 && (
+                            <div className="flex flex-col items-center justify-center space-y-10 text-center py-10 animate-in fade-in zoom-in-95">
+                                <div className="h-20 w-20 bg-[#D9F99D] rounded-[2rem] flex items-center justify-center shadow-xl shadow-[#D9F99D]/20 animate-bounce">
+                                    <CheckCircle className="h-10 w-10 text-slate-900" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-3xl font-black text-slate-900 italic uppercase tracking-tighter">Review & Finish</h3>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Check everything before adding the employee.</p>
+                                </div>
+                                <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                                    <div className="p-8 bg-slate-50 rounded-[2rem] space-y-6">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white pb-3">Personal Details</p>
+                                        <div className="space-y-4">
+                                            <div><p className="text-[7px] font-black text-slate-400 uppercase">Full Name</p><p className="text-sm font-black italic uppercase text-slate-900">{formData.name || "N/A"}</p></div>
+                                            <div><p className="text-[7px] font-black text-slate-400 uppercase">Aadhaar Number</p><p className="text-sm font-black text-slate-900">{formData.aadhaar || "N/A"}</p></div>
+                                        </div>
+                                    </div>
+                                    <div className="p-8 bg-slate-50 rounded-[2rem] space-y-6">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white pb-3">Job Details</p>
+                                        <div className="space-y-4">
+                                            <div><p className="text-[7px] font-black text-slate-400 uppercase">Office Location</p><p className="text-sm font-black italic uppercase text-slate-900">{formData.location}</p></div>
+                                            <div><p className="text-[7px] font-black text-slate-400 uppercase">Role</p><p className="text-sm font-black text-slate-900 uppercase tracking-widest">{formData.role}</p></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+
+                    <CardFooter className="px-0 pb-0 pt-10 border-t border-slate-50 flex justify-between items-center bg-transparent">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+                            disabled={currentStep === 0}
+                            className="h-12 px-8 rounded-xl gap-3 text-slate-400 hover:text-slate-900 font-black uppercase tracking-widest text-[9px] transition-all"
+                        >
+                            <ArrowLeft className="h-4 w-4" /> Go Back
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                if (currentStep === steps.length - 1) {
+                                    handleFinish();
+                                } else {
+                                    setCurrentStep(currentStep + 1);
+                                }
+                            }}
+                            className="h-12 px-12 rounded-xl bg-slate-900 text-white font-black uppercase tracking-[0.3em] text-[10px] shadow-2xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-3"
+                        >
+                            {currentStep === steps.length - 1 ? "Add Employee" : "Next Step"} <ChevronRight className="h-4 w-4" />
+                        </Button>
+                    </CardFooter>
+                </Card>
+            </div>
+        </ProtectedRoute>
     );
 }
-
-const cn = (...classes: string[]) => classes.filter(Boolean).join(' ');
