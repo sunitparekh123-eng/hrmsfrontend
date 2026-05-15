@@ -41,6 +41,20 @@ const templates = [
 export default function LettersPage() {
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+    const [selectedVariant, setSelectedVariant] = useState(1);
+
+    const getVariantStyles = (variant: number) => {
+        switch(variant) {
+            case 1: return { wrapper: "font-serif text-slate-800 border-t-[16px] border-slate-900", header: "border-b-2 border-slate-900 pb-6", title: "text-2xl font-black uppercase italic tracking-tighter" };
+            case 2: return { wrapper: "font-sans text-slate-600 bg-[#FAFAFA]", header: "border-b border-slate-200 pb-8 text-center", title: "text-3xl font-light tracking-widest text-slate-800 uppercase" };
+            case 3: return { wrapper: "font-serif text-slate-900 border-x-4 border-indigo-900", header: "bg-indigo-900 text-white p-12 -mx-12 -mt-12 mb-8 shadow-md", title: "text-3xl font-black uppercase tracking-widest text-indigo-50" };
+            case 4: return { wrapper: "font-sans text-slate-800 border-l-[24px] border-[#D9F99D]", header: "pb-6", title: "text-4xl font-black uppercase tracking-tighter text-slate-900" };
+            case 5: return { wrapper: "font-serif text-black border-[6px] border-double border-slate-900 p-10 m-2", header: "border-b-[6px] border-double border-slate-900 pb-6 text-center", title: "text-4xl font-serif uppercase tracking-widest" };
+            default: return { wrapper: "", header: "", title: "" };
+        }
+    };
+
+    const styles = getVariantStyles(selectedVariant);
 
     return (
         <div className="space-y-10 pb-20">
@@ -147,18 +161,44 @@ export default function LettersPage() {
             <Dialog open={!!selectedTemplate} onOpenChange={(val) => !val && setSelectedTemplate(null)}>
                 <DialogContent className="max-w-6xl sm:max-w-6xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden border-none shadow-2xl [&>button]:text-white [&>button]:top-6 [&>button]:right-6 [&>button]:z-50 [&>button]:bg-white/10 [&>button]:rounded-full [&>button]:p-1">
                     <div className="flex h-full w-full">
-                        <div className="flex-1 bg-slate-50 p-4 sm:p-8 overflow-auto custom-scrollbar relative">
-                            <div className="bg-white p-8 sm:p-12 shadow-2xl rounded-sm w-[794px] min-h-[1123px] shrink-0 font-serif text-slate-800 flex flex-col relative mx-auto">
-                                <div className="flex justify-between items-start border-b-2 border-slate-900 pb-6">
-                                    <div>
-                                        <h2 className="text-2xl font-black uppercase italic tracking-tighter">TRIPTAY LOGISTICS</h2>
-                                        <p className="text-[8px] font-bold uppercase tracking-widest mt-1.5">Office: Indore Hub</p>
+                        <div className="flex-1 bg-slate-200 p-4 sm:p-8 overflow-auto custom-scrollbar relative flex items-start justify-center">
+                            <div className={cn("bg-white p-12 shadow-2xl w-[794px] min-h-[1123px] shrink-0 flex flex-col relative transition-all duration-300", styles.wrapper)}>
+                                
+                                {/* Dynamic Header */}
+                                {selectedVariant === 3 ? (
+                                    <div className={styles.header}>
+                                        <div className="flex justify-between items-end">
+                                            <div>
+                                                <h2 className={styles.title}>TRIPTAY LOGISTICS</h2>
+                                                <p className="text-[10px] font-bold uppercase tracking-widest mt-2 text-indigo-200">Office: Indore Hub</p>
+                                            </div>
+                                            <div className="text-right text-indigo-100">
+                                                <p className="text-[10px] font-bold uppercase">Ref: TL/OFF/2026/102</p>
+                                                <p className="text-[10px] font-bold uppercase mt-0.5">Date: Feb 15, 2026</p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-[10px] font-bold uppercase">Ref: TL/OFF/2026/102</p>
-                                        <p className="text-[10px] font-bold uppercase mt-0.5">Date: Feb 15, 2026</p>
+                                ) : selectedVariant === 2 || selectedVariant === 5 ? (
+                                    <div className={styles.header}>
+                                        <h2 className={styles.title}>TRIPTAY LOGISTICS</h2>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest mt-2">Office: Indore Hub</p>
+                                        <div className="flex justify-between w-full mt-8 text-left">
+                                            <p className="text-[10px] font-bold uppercase">Ref: TL/OFF/2026/102</p>
+                                            <p className="text-[10px] font-bold uppercase">Date: Feb 15, 2026</p>
+                                        </div>
                                     </div>
-                                </div>
+                                ) : (
+                                    <div className={cn("flex justify-between items-start", styles.header)}>
+                                        <div>
+                                            <h2 className={styles.title}>TRIPTAY LOGISTICS</h2>
+                                            <p className="text-[8px] font-bold uppercase tracking-widest mt-1.5">Office: Indore Hub</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-bold uppercase">Ref: TL/OFF/2026/102</p>
+                                            <p className="text-[10px] font-bold uppercase mt-0.5">Date: Feb 15, 2026</p>
+                                        </div>
+                                    </div>
+                                )}
                                 
                                 <div className="flex-1 mt-10">
                                     {selectedTemplate?.id === 'TMP001' && (
@@ -170,7 +210,7 @@ export default function LettersPage() {
                                                 <br /><br />
                                                 As discussed, your starting date will be <strong>[Date]</strong>. Please find the details of your compensation package below.
                                             </p>
-                                            <div className="bg-slate-50 p-6 rounded-xl space-y-3 mt-6">
+                                            <div className="bg-slate-50 border border-slate-200 p-6 rounded-xl space-y-3 mt-6">
                                                 <p className="text-[8px] font-black uppercase tracking-widest border-b border-slate-200 pb-1.5">Compensation Overview</p>
                                                 <div className="grid grid-cols-2 gap-3 text-[10px] font-bold">
                                                     <span>Basic Salary:</span> <span className="text-right">₹ 24,000 / mo</span>
@@ -266,6 +306,20 @@ export default function LettersPage() {
                                             <option>Arjun Singh</option>
                                         </select>
                                     </div>
+                                    <div className="space-y-1.5 border-t border-white/10 pt-4">
+                                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Design Variant</p>
+                                        <select 
+                                            value={selectedVariant}
+                                            onChange={(e) => setSelectedVariant(Number(e.target.value))}
+                                            className="w-full bg-white/5 border border-white/10 rounded-lg h-10 px-3 text-[10px] font-bold outline-none text-[#D9F99D]"
+                                        >
+                                            <option value={1}>Standard Corporate</option>
+                                            <option value={2}>Modern Minimalist</option>
+                                            <option value={3}>Premium Executive</option>
+                                            <option value={4}>Creative Edge</option>
+                                            <option value={5}>Classic Formal</option>
+                                        </select>
+                                    </div>
                                     <div className="space-y-2 border-t border-white/10 pt-4">
                                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Dynamic Fields</p>
                                         <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2">
@@ -286,7 +340,7 @@ export default function LettersPage() {
                                     <div className="space-y-1.5 border-t border-white/10 pt-4">
                                         <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Format</p>
                                         <div className="grid grid-cols-2 gap-1.5">
-                                            <Button className="bg-[#D9F99D] text-slate-900 font-black text-[8px] h-9 rounded-lg">PDF</Button>
+                                            <Button className="bg-[#D9F99D] text-slate-900 font-black text-[8px] h-9 rounded-lg hover:bg-white transition-all">PDF</Button>
                                             <Button className="bg-white/5 text-white border border-white/10 font-black text-[8px] h-9 rounded-lg hover:bg-white/10">DOCX</Button>
                                         </div>
                                     </div>

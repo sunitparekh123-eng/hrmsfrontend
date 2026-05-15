@@ -107,10 +107,7 @@ export default function PayrollPage() {
         pfEmployee: 12,
         hraPercent: 40,
         defaultPT: 200,
-        cycle: "MAY 2026",
-        otRate: 150, // Per Hour
-        lateLimit: 3, // 3 lates = 0.5 day LOP
-        lateDeductionRate: 0.5,
+        cycle: "MAY 2026"
     });
 
     const [pastCycles, setPastCycles] = useState([
@@ -205,8 +202,6 @@ export default function PayrollPage() {
         const gross = row.base + row.hra + row.allowance + row.conveyance + row.medical;
         
         const lop = (gross / totalDays) * row.absentDays;
-        const otPay = row.otHours * globalRules.otRate;
-        const latePenalty = Math.floor(row.lateMarks / globalRules.lateLimit) * (gross / totalDays * globalRules.lateDeductionRate);
         
         let pt = 0;
         if (gross > 25000) pt = 208;
@@ -224,13 +219,11 @@ export default function PayrollPage() {
         return {
             gross,
             lop: Math.round(lop),
-            otPay: Math.round(otPay),
-            latePenalty: Math.round(latePenalty),
             bonus: row.bonus || 0,
             pf: Math.round(pf),
             pt,
             esi: Math.round(esi),
-            net: Math.round(gross + otPay + (row.bonus || 0) - lop - latePenalty - pf - pt - esi - row.loanDeduction)
+            net: Math.round(gross + (row.bonus || 0) - lop - pf - pt - esi - row.loanDeduction)
         };
     };
 
@@ -241,11 +234,11 @@ export default function PayrollPage() {
     };
 
     const handleExportCSV = () => {
-        const headers = ["Employee", "Node", "Gross", "OT Pay", "Bonus", "LOP", "Late Penalty", "PF", "PT", "ESI", "Loan", "Net Payable"];
+        const headers = ["Employee", "Node", "Gross", "Bonus", "LOP", "PF", "PT", "ESI", "Loan", "Net Payable"];
         const rows = ledger.map(emp => {
             const res = calculateProductionNet(emp);
             return [
-                emp.name, emp.node, res.gross, res.otPay, res.bonus, res.lop, res.latePenalty, res.pf, res.pt, res.esi, emp.loanDeduction, res.net
+                emp.name, emp.node, res.gross, res.bonus, res.lop, res.pf, res.pt, res.esi, emp.loanDeduction, res.net
             ];
         });
         
@@ -389,6 +382,14 @@ export default function PayrollPage() {
                 <div className="flex items-center gap-3">
                     
 
+                    <Link href="/payroll/analytics">
+                        <Button 
+                            variant="outline" 
+                            className="h-10 px-6 rounded-xl border-2 border-slate-50 font-black uppercase text-[9px] tracking-widest text-slate-400 transition-all hover:bg-slate-50"
+                        >
+                            <PieChart className="h-4 w-4 mr-2" /> Analytics
+                        </Button>
+                    </Link>
                     <Link href="/payroll/history">
                         <Button 
                             variant="outline" 
@@ -572,7 +573,7 @@ export default function PayrollPage() {
                                 </TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Employee Details</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Monthly Gross</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">OT / Late / Bonus</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bonus</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">PF Rule</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Net Payable</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status</TableHead>
@@ -609,8 +610,6 @@ export default function PayrollPage() {
                                     </TableCell>
                                     <TableCell className="text-[10px] font-bold text-slate-600">
                                         <div className="flex gap-2">
-                                            <span className="text-emerald-600">+{pNet.otPay} (OT)</span>
-                                            <span className="text-rose-500">-{pNet.latePenalty} (L)</span>
                                             <span className="text-blue-500">+{pNet.bonus} (B)</span>
                                         </div>
                                     </TableCell>
@@ -973,7 +972,7 @@ export default function PayrollPage() {
                                         <p className="text-xl font-black italic text-rose-500 tracking-tighter">
                                             -₹{ledger.reduce((acc, curr) => {
                                                 const res = calculateProductionNet(curr);
-                                                return acc + res.pf + res.pt + res.esi + res.lop + res.latePenalty;
+                                                return acc + res.pf + res.pt + res.esi + res.lop;
                                             }, 0).toLocaleString()}
                                         </p>
                                     </div>
@@ -1117,7 +1116,7 @@ export default function PayrollPage() {
                         </div>
                         <DialogTitle className="text-2xl font-black italic uppercase text-slate-900 tracking-tighter">Payroll Policies</DialogTitle>
                         <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-loose">
-                            Define overtime rates and deduction rules for the entire company.
+                            Define statutory deduction rules for the entire company.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -1128,35 +1127,9 @@ export default function PayrollPage() {
                         </TabsList>
 
                         <TabsContent value="operations" className="space-y-6 mt-0">
-                            <div className="space-y-2">
-                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Overtime (OT) Rate / Hour</Label>
-                                <Input 
-                                    type="number" 
-                                    value={globalRules.otRate}
-                                    onChange={(e) => setGlobalRules({...globalRules, otRate: parseInt(e.target.value) || 0})}
-                                    className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Late Mark Limit</Label>
-                                    <Input 
-                                        type="number" 
-                                        value={globalRules.lateLimit}
-                                        onChange={(e) => setGlobalRules({...globalRules, lateLimit: parseInt(e.target.value) || 0})}
-                                        className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Deduction (Days)</Label>
-                                    <Input 
-                                        type="number" 
-                                        step="0.5"
-                                        value={globalRules.lateDeductionRate}
-                                        onChange={(e) => setGlobalRules({...globalRules, lateDeductionRate: parseFloat(e.target.value) || 0})}
-                                        className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
-                                    />
-                                </div>
+                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                                <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-3">No Operational Rules</p>
+                                <p className="text-[10px] font-bold text-slate-500 italic">Operational penalties have been disabled globally.</p>
                             </div>
                         </TabsContent>
 

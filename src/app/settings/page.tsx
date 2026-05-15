@@ -1,5 +1,13 @@
 "use client";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/context/ThemeContext";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 import {
     User,
@@ -32,6 +40,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
 export default function SettingsPage() {
+    const { fontSize, setFontSize, contrastLevel, setContrastLevel } = useTheme();
+
     return (
         <div className="space-y-10 max-w-6xl mx-auto pb-20">
             {/* Header */}
@@ -217,6 +227,43 @@ export default function SettingsPage() {
                                         <Input defaultValue={l.value} className="h-11 border-none bg-slate-50 rounded-lg font-bold text-xs px-6" />
                                     </div>
                                 ))}
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] uppercase font-black text-slate-400 tracking-widest">Global Font Size</Label>
+                                    <Select value={fontSize.toString()} onValueChange={(v) => setFontSize(parseInt(v))}>
+                                        <SelectTrigger className="h-11 border-none bg-slate-50 rounded-lg font-bold text-xs px-6 shadow-none">
+                                            <SelectValue placeholder="Select Font Size" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-xl border-slate-100 bg-white">
+                                            <SelectItem value="12" className="text-xs font-bold">Small (12px)</SelectItem>
+                                            <SelectItem value="14" className="text-xs font-bold">Medium (14px)</SelectItem>
+                                            <SelectItem value="16" className="text-xs font-bold">Default (16px)</SelectItem>
+                                            <SelectItem value="18" className="text-xs font-bold">Large (18px)</SelectItem>
+                                            <SelectItem value="20" className="text-xs font-bold">Extra Large (20px)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="flex flex-col gap-4 bg-slate-50 p-4 rounded-lg">
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between items-center">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-900">Text Contrast Level</p>
+                                            <span className="text-[9px] font-black text-slate-500 bg-white px-2 py-1 rounded-md shadow-sm border border-slate-100">{contrastLevel}%</span>
+                                        </div>
+                                        <p className="text-[9px] font-bold text-slate-400">Adjust the slider to make text darker for better readability</p>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-[9px] font-black uppercase text-slate-300">Default</span>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            step="5"
+                                            value={contrastLevel}
+                                            onChange={(e) => setContrastLevel(Number(e.target.value))}
+                                            className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-slate-900"
+                                        />
+                                        <span className="text-[9px] font-black uppercase text-slate-900">Dark</span>
+                                    </div>
+                                </div>
                             </div>
                         </Card>
 

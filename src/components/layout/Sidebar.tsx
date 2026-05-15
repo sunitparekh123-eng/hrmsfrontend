@@ -16,7 +16,8 @@ import {
     BarChart3,
     FileType,
     UserCircle,
-    Shield
+    Shield,
+    PieChart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ const navigation: { name: string, href: string, icon: any, module: ModuleName }[
     { name: "Locations", href: "/locations", icon: MapPin, module: 'LOCATIONS' },
     { name: "Leave", href: "/leave", icon: CalendarDays, module: 'LEAVE' },
     { name: "Payroll", href: "/payroll", icon: Wallet, module: 'PAYROLL' },
+    { name: "Analytics", href: "/payroll/analytics", icon: PieChart, module: 'PAYROLL' },
     { name: "Letters", href: "/letters", icon: FileType, module: 'LETTERS' },
     { name: "Reports", href: "/reports", icon: BarChart3, module: 'REPORTS' },
     { name: "Settings", href: "/settings", icon: Settings, module: 'SETTINGS' },
@@ -82,7 +84,7 @@ export function Sidebar() {
                 </div>
             </div>
 
-            <nav className="flex-1 space-y-1 px-4 py-2">
+            <nav className="flex-1 space-y-1 px-4 py-2 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
                 {filteredNavigation.map((item) => (
                     <Link
                         key={item.name}
@@ -130,7 +132,7 @@ export function MobileSidebar({ isOpen, onOpenChange }: { isOpen: boolean, onOpe
                 <span className="font-black text-xl tracking-tight text-slate-900 italic">HRMS</span>
             </div>
 
-            <div className="flex-1 space-y-2">
+            <div className="flex-1 space-y-2 overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-300">
                 {filteredNavigation.map((item) => (
                     <Link
                         key={item.name}

@@ -124,4 +124,12 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  body.dynamic-contrast .text-slate-300,
+  body.dynamic-contrast .text-slate-400,
+  body.dynamic-contrast .text-slate-500,
+  body.dynamic-contrast .text-muted-foreground {
+    color: color-mix(in oklch, oklch(0.208 0.042 265.755) calc(var(--contrast-level) * 100%), oklch(0.552 0.016 285.938)) !important;
+    font-weight: calc(400 + (var(--contrast-level) * 300)) !important;
+  }
 }

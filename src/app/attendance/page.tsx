@@ -70,8 +70,16 @@ export default function AttendancePage() {
     const [activeTab, setActiveTab] = useState<"live" | "history">("live");
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedBranch, setSelectedBranch] = useState("All Branches");
+    const [selectedStatus, setSelectedStatus] = useState<"All" | "Present" | "Absent" | "Late">("All");
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
+    
+    // Manual Attendance State
+    const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
+    const [manualEmpId, setManualEmpId] = useState("");
+    const [manualDate, setManualDate] = useState("");
+    const [manualStatus, setManualStatus] = useState("Present");
+    const [manualReason, setManualReason] = useState("");
     
     // Mock Data for Dashboard
     const stats = {
@@ -154,27 +162,35 @@ export default function AttendancePage() {
                         <p className="text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-[0.2em]">Real-time GPS Monitoring & Deep Intelligence</p>
                     </div>
 
-                    <div className="flex bg-slate-100 p-1 rounded-2xl">
+                    <div className="flex items-center gap-4">
                         <Button 
-                            onClick={() => setActiveTab("live")}
-                            variant="ghost" 
-                            className={cn(
-                                "h-11 px-6 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all",
-                                activeTab === "live" ? "bg-white shadow-sm text-slate-900" : "text-slate-400"
-                            )}
+                            onClick={() => setIsManualEntryOpen(true)}
+                            className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[9px] tracking-widest px-6 h-11 rounded-2xl shadow-md transition-all hover:translate-y-[-2px]"
                         >
-                            <Zap className="h-4 w-4 mr-2" /> Live Status
+                            <UserPlus className="h-4 w-4 mr-2 text-[#D9F99D]" /> Manual Entry
                         </Button>
-                        <Button 
-                            onClick={() => setActiveTab("history")}
-                            variant="ghost" 
-                            className={cn(
-                                "h-11 px-6 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all",
-                                activeTab === "history" ? "bg-white shadow-sm text-slate-900" : "text-slate-400"
-                            )}
-                        >
-                            <History className="h-4 w-4 mr-2" /> History
-                        </Button>
+                        <div className="flex bg-slate-100 p-1 rounded-2xl">
+                            <Button 
+                                onClick={() => setActiveTab("live")}
+                                variant="ghost" 
+                                className={cn(
+                                    "h-10 px-6 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all",
+                                    activeTab === "live" ? "bg-white shadow-sm text-slate-900" : "text-slate-400 hover:text-slate-900"
+                                )}
+                            >
+                                <Zap className="h-4 w-4 mr-2" /> Live Status
+                            </Button>
+                            <Button 
+                                onClick={() => setActiveTab("history")}
+                                variant="ghost" 
+                                className={cn(
+                                    "h-10 px-6 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all",
+                                    activeTab === "history" ? "bg-white shadow-sm text-slate-900" : "text-slate-400 hover:text-slate-900"
+                                )}
+                            >
+                                <History className="h-4 w-4 mr-2" /> History
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
@@ -183,17 +199,33 @@ export default function AttendancePage() {
                         {/* Stats Overview */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 px-2">
                             {[
-                                { label: "Total Staff", value: stats.total, icon: Users2, trend: "Active", color: "bg-[#E0E7FF]", unit: "Staff" },
-                                { label: "Present Today", value: stats.present, icon: UserCheck, trend: "82%", color: "bg-[#D1FAE5]", unit: "Online" },
-                                { label: "Absent Today", value: stats.absent, icon: UserX, trend: "10%", color: "bg-[#FEE2E2]", unit: "Offline" },
-                                { label: "Late Arrivals", value: stats.late, icon: Clock, trend: "8%", color: "bg-[#FEF3C7]", unit: "Delayed" },
+                                { label: "Total Staff", value: stats.total, icon: Users2, trend: "Active", color: "bg-[#E0E7FF]", unit: "Staff", statusFilter: "All" },
+                                { label: "Present Today", value: stats.present, icon: UserCheck, trend: "82%", color: "bg-[#D1FAE5]", unit: "Online", statusFilter: "Present" },
+                                { label: "Absent Today", value: stats.absent, icon: UserX, trend: "10%", color: "bg-[#FEE2E2]", unit: "Offline", statusFilter: "Absent" },
+                                { label: "Late Arrivals", value: stats.late, icon: Clock, trend: "8%", color: "bg-[#FEF3C7]", unit: "Delayed", statusFilter: "Late" },
                             ].map((s, i) => (
-                                <Card key={i} className={`${s.color} border-none rounded-2xl p-6 shadow-sm flex flex-col justify-between h-36 group hover:shadow-lg transition-all`}>
+                                <Card 
+                                    key={i} 
+                                    onClick={() => {
+                                        setSelectedStatus(s.statusFilter as "All" | "Present" | "Absent" | "Late");
+                                        setCurrentPage(1);
+                                    }}
+                                    className={cn(
+                                        s.color,
+                                        "border-none rounded-2xl p-6 shadow-sm flex flex-col justify-between h-36 group hover:shadow-lg transition-all cursor-pointer",
+                                        selectedStatus === s.statusFilter ? "scale-[1.02] shadow-md" : "hover:scale-[1.02]"
+                                    )}
+                                >
                                     <div className="flex items-center justify-between">
                                         <div className="h-8 w-8 bg-white/50 rounded-lg flex items-center justify-center">
                                             <s.icon className="h-4 w-4 text-slate-600" />
                                         </div>
-                                        <Badge className="bg-white/30 text-slate-900 border-none font-black text-[7px] uppercase tracking-widest px-2 h-5 rounded-md italic">{s.trend}</Badge>
+                                        <div className="flex items-center gap-2">
+                                            {selectedStatus === s.statusFilter && (
+                                                <div className="h-2 w-2 rounded-full bg-slate-900 shadow-sm" />
+                                            )}
+                                            <Badge className="bg-white/30 text-slate-900 border-none font-black text-[7px] uppercase tracking-widest px-2 h-5 rounded-md italic">{s.trend}</Badge>
+                                        </div>
                                     </div>
                                     <div>
                                         <p className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-0.5">{s.label}</p>
@@ -210,13 +242,13 @@ export default function AttendancePage() {
                             <CardHeader className="p-8 pb-4 border-none flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
                                 <div>
                                     <CardTitle className="text-xl font-black italic uppercase text-slate-900 tracking-tighter">Live Attendance Hub</CardTitle>
-                                    <CardDescription className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Deep tracking: Shifts, OT, and Device verification</CardDescription>
+                                    <CardDescription className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-1">Real-time Staff Tracking</CardDescription>
                                 </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                    <div className="flex items-center gap-2 bg-slate-50 px-4 rounded-xl border border-slate-100">
+                                <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-2 -mb-2 scrollbar-none w-full xl:w-auto">
+                                    <div className="flex items-center gap-2 bg-slate-50 px-3 shrink-0 rounded-xl border border-slate-100">
                                         <MapPin className="h-3.5 w-3.5 text-slate-400" />
                                         <select 
-                                            className="bg-transparent border-none text-[9px] font-black uppercase tracking-widest outline-none pr-4 h-10"
+                                            className="bg-transparent border-none text-[9px] font-black uppercase tracking-widest outline-none pr-2 h-10 cursor-pointer"
                                             value={selectedBranch}
                                             onChange={(e) => setSelectedBranch(e.target.value)}
                                         >
@@ -226,19 +258,35 @@ export default function AttendancePage() {
                                             <option value="Satna Node">Satna Node</option>
                                         </select>
                                     </div>
-                                    <div className="relative group">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300 group-focus-within:text-slate-900 transition-colors" />
+                                    <div className="flex items-center gap-2 bg-slate-50 px-3 shrink-0 rounded-xl border border-slate-100">
+                                        <Filter className="h-3.5 w-3.5 text-slate-400" />
+                                        <select 
+                                            className="bg-transparent border-none text-[9px] font-black uppercase tracking-widest outline-none pr-2 h-10 cursor-pointer"
+                                            value={selectedStatus}
+                                            onChange={(e) => {
+                                                setSelectedStatus(e.target.value as any);
+                                                setCurrentPage(1);
+                                            }}
+                                        >
+                                            <option value="All">All Status</option>
+                                            <option value="Present">Present</option>
+                                            <option value="Absent">Absent</option>
+                                            <option value="Late">Late</option>
+                                        </select>
+                                    </div>
+                                    <div className="relative group shrink-0">
+                                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300 group-focus-within:text-slate-900 transition-colors" />
                                         <Input 
                                             placeholder="Search Staff..." 
-                                            className="h-10 w-48 pl-10 bg-slate-50 border-none rounded-xl font-bold text-[9px] focus-visible:ring-1 focus-visible:ring-[#D9F99D]" 
+                                            className="h-10 w-36 pl-9 bg-slate-50 border-none rounded-xl font-bold text-[9px] focus-visible:ring-1 focus-visible:ring-[#D9F99D]" 
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                         />
                                     </div>
-                                    <Button variant="outline" className="h-10 w-10 p-0 rounded-xl border-slate-100 hover:bg-slate-50 transition-all">
+                                    <Button variant="outline" className="h-10 w-10 p-0 shrink-0 rounded-xl border-slate-100 hover:bg-slate-50 transition-all">
                                         <RefreshCw className="h-4 w-4 text-slate-400" />
                                     </Button>
-                                    <Button variant="outline" className="h-10 px-6 rounded-xl border-slate-100 font-black text-[9px] uppercase tracking-widest">
+                                    <Button variant="outline" className="h-10 px-4 shrink-0 rounded-xl border-slate-100 font-black text-[9px] uppercase tracking-widest">
                                         <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-500" /> Export
                                     </Button>
                                 </div>
@@ -251,7 +299,7 @@ export default function AttendancePage() {
                                             <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">In/Out & Device</th>
                                             <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">Location & Selfie</th>
                                             <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">Shift & Hours</th>
-                                            <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">OT & Remarks</th>
+                                            <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">Remarks</th>
                                             <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                                         </tr>
                                     </TableHeader>
@@ -260,7 +308,8 @@ export default function AttendancePage() {
                                             .filter(log => {
                                                 const matchesSearch = log.name.toLowerCase().includes(searchTerm.toLowerCase()) || log.id.toLowerCase().includes(searchTerm.toLowerCase());
                                                 const matchesBranch = selectedBranch === "All Branches" || log.location === selectedBranch;
-                                                return matchesSearch && matchesBranch;
+                                                const matchesStatus = selectedStatus === "All" || log.status === selectedStatus;
+                                                return matchesSearch && matchesBranch && matchesStatus;
                                             })
                                             .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                                             .map((log) => (
@@ -321,26 +370,34 @@ export default function AttendancePage() {
                                                 </td>
                                                 <td className="py-5 px-8">
                                                     <div className="space-y-1.5">
-                                                        {log.overtime !== "---" && log.overtime !== "0h 0m" ? (
-                                                            <Badge variant="outline" className="border-blue-100 bg-blue-50 text-blue-600 font-black text-[7px] uppercase h-5 px-2">OT: {log.overtime}</Badge>
-                                                        ) : (
-                                                            <span className="text-[9px] font-bold text-slate-300 uppercase">No OT</span>
-                                                        )}
-                                                        {log.lateFine > 0 && (
-                                                            <p className="text-[8px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-1">
-                                                                <AlertCircle className="h-2.5 w-2.5" /> Late Fine: ₹{log.lateFine}
-                                                            </p>
-                                                        )}
+                                                        <span className="text-[9px] font-bold text-slate-400 italic">No special remarks</span>
                                                     </div>
                                                 </td>
                                                 <td className="py-5 px-8">
-                                                    <Badge className={cn(
-                                                        "font-black text-[8px] uppercase tracking-widest px-3 py-1 rounded-lg border-none shadow-sm",
-                                                        log.status === 'Present' ? "bg-emerald-50 text-emerald-600" :
-                                                        log.status === 'Late' ? "bg-amber-50 text-amber-600" : "bg-rose-50 text-rose-600"
-                                                    )}>
-                                                        {log.status}
-                                                    </Badge>
+                                                    <div className="flex items-center gap-2 group/status">
+                                                        <Badge className={cn(
+                                                            "font-black text-[8px] uppercase tracking-widest px-3 py-1 rounded-lg border-none shadow-sm cursor-pointer hover:opacity-80 transition-opacity",
+                                                            log.status === 'Present' ? "bg-emerald-50 text-emerald-600" :
+                                                            log.status === 'Late' ? "bg-amber-50 text-amber-600" : "bg-rose-50 text-rose-600"
+                                                        )}
+                                                        onClick={() => {
+                                                            setManualEmpId(log.id);
+                                                            setIsManualEntryOpen(true);
+                                                        }}>
+                                                            {log.status}
+                                                        </Badge>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-6 w-6 rounded-md opacity-0 group-hover/status:opacity-100 transition-opacity"
+                                                            onClick={() => {
+                                                                setManualEmpId(log.id);
+                                                                setIsManualEntryOpen(true);
+                                                            }}
+                                                        >
+                                                            <Settings className="h-3 w-3 text-slate-400" />
+                                                        </Button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -362,7 +419,7 @@ export default function AttendancePage() {
                                         >
                                             Prev
                                         </Button>
-                                        {[...Array(Math.ceil(attendanceLogs.length / itemsPerPage))].map((_, i) => (
+                                        {[...Array(Math.ceil(attendanceLogs.filter(log => (selectedStatus === "All" || log.status === selectedStatus) && (selectedBranch === "All Branches" || log.location === selectedBranch) && (log.name.toLowerCase().includes(searchTerm.toLowerCase()) || log.id.toLowerCase().includes(searchTerm.toLowerCase()))).length / itemsPerPage) || 1)].map((_, i) => (
                                             <Button
                                                 key={i}
                                                 variant={currentPage === i + 1 ? "default" : "outline"}
@@ -379,8 +436,8 @@ export default function AttendancePage() {
                                         <Button 
                                             variant="outline" 
                                             size="sm" 
-                                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(attendanceLogs.length / itemsPerPage), prev + 1))}
-                                            disabled={currentPage === Math.ceil(attendanceLogs.length / itemsPerPage)}
+                                            onClick={() => setCurrentPage(prev => Math.min(Math.ceil(attendanceLogs.filter(log => (selectedStatus === "All" || log.status === selectedStatus) && (selectedBranch === "All Branches" || log.location === selectedBranch) && (log.name.toLowerCase().includes(searchTerm.toLowerCase()) || log.id.toLowerCase().includes(searchTerm.toLowerCase()))).length / itemsPerPage) || 1, prev + 1))}
+                                            disabled={currentPage === (Math.ceil(attendanceLogs.filter(log => (selectedStatus === "All" || log.status === selectedStatus) && (selectedBranch === "All Branches" || log.location === selectedBranch) && (log.name.toLowerCase().includes(searchTerm.toLowerCase()) || log.id.toLowerCase().includes(searchTerm.toLowerCase()))).length / itemsPerPage) || 1)}
                                             className="h-9 px-4 rounded-xl border-slate-200 font-black text-[9px] uppercase tracking-widest disabled:opacity-30"
                                         >
                                             Next
@@ -506,7 +563,7 @@ export default function AttendancePage() {
                                             <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">In/Out & Device</th>
                                             <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">Location & Selfie</th>
                                             <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">Shift & Hours</th>
-                                            <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">OT & Remarks</th>
+                                            <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">Remarks</th>
                                             <th className="text-left py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
                                         </tr>
                                     </TableHeader>
@@ -569,26 +626,34 @@ export default function AttendancePage() {
                                                 </td>
                                                 <td className="py-5 px-8">
                                                     <div className="space-y-1.5">
-                                                        {row.ot !== "---" ? (
-                                                            <Badge variant="outline" className="border-blue-100 bg-blue-50 text-blue-600 font-black text-[7px] uppercase h-5 px-2">OT: {row.ot}</Badge>
-                                                        ) : (
-                                                            <span className="text-[9px] font-bold text-slate-300 uppercase">Standard</span>
-                                                        )}
-                                                        {row.fine > 0 && (
-                                                            <p className="text-[8px] font-black text-rose-500 uppercase tracking-widest flex items-center gap-1">
-                                                                <AlertCircle className="h-2.5 w-2.5" /> Fine: ₹{row.fine}
-                                                            </p>
-                                                        )}
+                                                        <span className="text-[9px] font-bold text-slate-400 italic">No special remarks</span>
                                                     </div>
                                                 </td>
                                                 <td className="py-5 px-8">
-                                                    <Badge className={cn(
-                                                        "font-black text-[8px] uppercase tracking-widest px-3 py-1 rounded-lg border-none shadow-sm",
-                                                        row.status === 'Present' ? "bg-emerald-50 text-emerald-600" :
-                                                        row.status === 'Late' ? "bg-amber-50 text-amber-600" : "bg-rose-50 text-rose-600"
-                                                    )}>
-                                                        {row.status}
-                                                    </Badge>
+                                                    <div className="flex items-center gap-2 group/status">
+                                                        <Badge className={cn(
+                                                            "font-black text-[8px] uppercase tracking-widest px-3 py-1 rounded-lg border-none shadow-sm cursor-pointer hover:opacity-80 transition-opacity",
+                                                            row.status === 'Present' ? "bg-emerald-50 text-emerald-600" :
+                                                            row.status === 'Late' ? "bg-amber-50 text-amber-600" : "bg-rose-50 text-rose-600"
+                                                        )}
+                                                        onClick={() => {
+                                                            setManualEmpId(row.id);
+                                                            setIsManualEntryOpen(true);
+                                                        }}>
+                                                            {row.status}
+                                                        </Badge>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-6 w-6 rounded-md opacity-0 group-hover/status:opacity-100 transition-opacity"
+                                                            onClick={() => {
+                                                                setManualEmpId(row.id);
+                                                                setIsManualEntryOpen(true);
+                                                            }}
+                                                        >
+                                                            <Settings className="h-3 w-3 text-slate-400" />
+                                                        </Button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -602,6 +667,81 @@ export default function AttendancePage() {
                     </div>
                 )}
             </div>
+
+            {/* Manual Attendance Entry Dialog */}
+            <Dialog open={isManualEntryOpen} onOpenChange={setIsManualEntryOpen}>
+                <DialogContent className="sm:max-w-[425px] rounded-[2rem] p-0 overflow-hidden bg-white border-none shadow-2xl">
+                    <div className="bg-slate-900 p-8 text-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-6 opacity-10">
+                            <ShieldCheck className="h-24 w-24 text-white" />
+                        </div>
+                        <div className="relative z-10 flex flex-col items-center">
+                            <div className="h-14 w-14 bg-white/10 rounded-2xl flex items-center justify-center mb-4">
+                                <UserCheck className="h-7 w-7 text-[#D9F99D]" />
+                            </div>
+                            <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter text-white">Manual Override</DialogTitle>
+                            <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                                Admin Privileged Action
+                            </DialogDescription>
+                        </div>
+                    </div>
+                    
+                    <div className="p-8 space-y-6">
+                        <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Employee ID</Label>
+                            <Input 
+                                placeholder="e.g. EMP005" 
+                                value={manualEmpId}
+                                onChange={(e) => setManualEmpId(e.target.value)}
+                                className="h-12 rounded-xl bg-slate-50 border-none font-bold text-xs uppercase"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Date</Label>
+                                <Input 
+                                    type="date"
+                                    value={manualDate}
+                                    onChange={(e) => setManualDate(e.target.value)}
+                                    className="h-12 rounded-xl bg-slate-50 border-none font-bold text-xs uppercase"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Status</Label>
+                                <select 
+                                    value={manualStatus}
+                                    onChange={(e) => setManualStatus(e.target.value)}
+                                    className="h-12 w-full px-3 rounded-xl bg-slate-50 border-none font-bold text-[10px] uppercase outline-none focus:ring-2 ring-indigo-100"
+                                >
+                                    <option value="Present">Present</option>
+                                    <option value="Absent">Absent</option>
+                                    <option value="Half Day">Half Day</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Authorized Reason & Log</Label>
+                            <textarea 
+                                placeholder="Provide detailed reason for manual entry..." 
+                                value={manualReason}
+                                onChange={(e) => setManualReason(e.target.value)}
+                                className="w-full h-24 p-4 rounded-xl bg-slate-50 border-none font-bold text-xs resize-none outline-none focus:ring-2 ring-indigo-100"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                            <Info className="h-3 w-3" /> Logged as Admin
+                        </span>
+                        <div className="flex gap-3">
+                            <Button variant="ghost" onClick={() => setIsManualEntryOpen(false)} className="text-[9px] font-black uppercase tracking-widest text-slate-500 rounded-xl hover:bg-slate-200">Cancel</Button>
+                            <Button onClick={() => setIsManualEntryOpen(false)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase text-[9px] tracking-widest rounded-xl px-6 shadow-md transition-all hover:translate-y-[-2px]">Submit</Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
         </ProtectedRoute>
     );
 }

@@ -205,6 +205,101 @@ export default function EmployeeProfilePage() {
                                 </div>
                             </div>
                         </Card>
+
+                        {/* Compensation & Payouts */}
+                        <Card className="border-none shadow-sm rounded-[2.5rem] bg-white p-10">
+                            <CardHeader className="px-0 pt-0 pb-8 border-b border-slate-50 mb-8 flex flex-row items-center justify-between">
+                                <CardTitle className="text-sm font-black uppercase tracking-widest italic flex items-center gap-3">
+                                    <Banknote className="h-4 w-4 text-emerald-500" /> Compensation & Payouts
+                                </CardTitle>
+                                <Badge className="bg-emerald-50 text-emerald-600 font-black text-[8px] uppercase tracking-widest h-6 px-3 border-none">Active Ledger</Badge>
+                            </CardHeader>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                <div className="bg-slate-50 rounded-2xl p-6 border border-white">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Base Salary (Gross)</p>
+                                    <p className="text-xl font-black italic text-slate-900">₹{employee.baseSalary || "1,20,000"} <span className="text-[9px] font-bold text-slate-400 not-italic">/mo</span></p>
+                                </div>
+                                <div className="bg-slate-50 rounded-2xl p-6 border border-white">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Cost Per Day</p>
+                                    <p className="text-xl font-black italic text-slate-900">₹{employee.costPerDay || "3,870"} <span className="text-[9px] font-bold text-slate-400 not-italic">/day</span></p>
+                                </div>
+                                <div className="bg-indigo-50 rounded-2xl p-6 border border-white">
+                                    <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-1">YTD Disbursed</p>
+                                    <p className="text-xl font-black italic text-indigo-900">₹{employee.ytd || "4,50,000"}</p>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-4">Recent Disbursement History</p>
+                                <div className="space-y-2">
+                                    {[
+                                        { month: "April 2026", date: "02 May 2026", gross: 120000, net: 115000, status: "Paid" },
+                                        { month: "March 2026", date: "01 Apr 2026", gross: 120000, net: 116200, status: "Paid" },
+                                        { month: "February 2026", date: "28 Feb 2026", gross: 120000, net: 114500, status: "Paid" },
+                                    ].map((p, i) => (
+                                        <div key={i} className="flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 rounded-2xl transition-colors">
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-black italic uppercase text-slate-900 tracking-tighter">{p.month}</span>
+                                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{p.date}</span>
+                                            </div>
+                                            <div className="flex items-center gap-6">
+                                                <div className="text-right">
+                                                    <span className="block text-[9px] font-black uppercase text-slate-400">Net Payout</span>
+                                                    <span className="text-sm font-black italic text-slate-900">₹{p.net.toLocaleString()}</span>
+                                                </div>
+                                                <Badge className="bg-emerald-50 text-emerald-600 font-black text-[7px] uppercase tracking-widest h-5 px-2 border-none">
+                                                    {p.status}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </Card>
+
+                        {/* Performance & Appraisals */}
+                        <Card className="border-none shadow-sm rounded-[2.5rem] bg-white p-10">
+                            <CardHeader className="px-0 pt-0 pb-8 border-b border-slate-50 mb-8">
+                                <CardTitle className="text-sm font-black uppercase tracking-widest italic flex items-center gap-3">
+                                    <TrendingUp className="h-4 w-4 text-indigo-500" /> Performance & Appraisals
+                                </CardTitle>
+                            </CardHeader>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div className="space-y-6">
+                                    <div>
+                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Overall Rating (2025-26)</p>
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex items-center text-amber-400">
+                                                <Award className="h-5 w-5 fill-current" />
+                                                <Award className="h-5 w-5 fill-current" />
+                                                <Award className="h-5 w-5 fill-current" />
+                                                <Award className="h-5 w-5 fill-current" />
+                                                <Award className="h-5 w-5 text-slate-200" />
+                                            </div>
+                                            <span className="text-lg font-black italic text-slate-900 ml-2">4.2<span className="text-[10px] text-slate-400 not-italic">/5.0</span></span>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Last Appraisal Date</p>
+                                        <p className="text-xs font-black text-slate-900 tracking-widest">15 Jan 2026</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Next Review Cycle</p>
+                                        <p className="text-xs font-black text-slate-900 tracking-widest">Jan 2027</p>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-50 p-6 rounded-2xl border border-white space-y-4">
+                                    <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Manager Remarks</p>
+                                    <p className="text-[10px] font-bold text-slate-500 leading-relaxed">
+                                        "Exceptional performance in Q3 and Q4. Delivered the core module 2 weeks ahead of schedule. Needs to focus slightly more on peer mentoring. Promoted to Senior Role."
+                                    </p>
+                                    <div className="flex items-center gap-2 pt-2 border-t border-slate-200">
+                                        <div className="h-5 w-5 rounded-full bg-slate-200 flex items-center justify-center text-[7px] font-black text-slate-600">JS</div>
+                                        <span className="text-[8px] font-black uppercase text-slate-400 tracking-widest">Reviewed by John Smith</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
                     </div>
 
                     {/* Right Column: Documentation & Timeline */}
