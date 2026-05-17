@@ -21,30 +21,209 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
-// Mock Data
+// Shared Math Logic from Main Payroll Sheet
+const calculateProductionNet = (row: any) => {
+    const daysInMonth = 28; // Extracted from client sheet
+    const payableDays = daysInMonth - (row.absentDays || 0);
+
+    // Fixed Structure
+    const fixedBasic = Math.round(row.fixedGross * 0.40);
+    const fixedHra = Math.round(fixedBasic * 0.40);
+    const fixedOther = row.fixedGross - fixedBasic - fixedHra;
+
+    // Prorated Structure
+    const basic = Math.round((fixedBasic / daysInMonth) * payableDays);
+    const hra = Math.round((fixedHra / daysInMonth) * payableDays);
+    const other = Math.round((fixedOther / daysInMonth) * payableDays);
+
+    const proratedGross = basic + hra + other;
+    const totalEarnings = proratedGross + (row.previousArrears || 0) + (row.bonus || 0) + (row.incentive || 0);
+
+    // Deductions
+    let pf = 0;
+    if (row.pfApplicable) {
+        const pfBasic = row.pfCeiling ? Math.min(basic, 15000) : basic;
+        pf = Math.round(pfBasic * 0.12);
+    }
+
+    let esi = 0;
+    if (row.esicApplicable) {
+        esi = Math.ceil(totalEarnings * 0.0075);
+    }
+
+    let pt = 0;
+    if (proratedGross > 33333) pt = 208;
+    else if (proratedGross > 25000) pt = 167;
+    else if (proratedGross > 15000) pt = 125;
+
+    const grossDeductions = pf + esi + pt + (row.loanDeduction || 0) + (row.otherDeduction || 0);
+    const net = totalEarnings - grossDeductions;
+
+    // Employer Contribution
+    const pfEmployer = pf;
+    const esiEmployer = row.esicApplicable ? Math.ceil(totalEarnings * 0.0325) : 0;
+    const totalMonthlyCTC = totalEarnings + pfEmployer + esiEmployer;
+
+    return {
+        basic,
+        hra,
+        other,
+        proratedGross,
+        totalEarnings,
+        pf,
+        esi,
+        pt,
+        grossDeductions,
+        net,
+        pfEmployer,
+        esiEmployer,
+        totalMonthlyCTC
+    };
+};
+
+// Exact Client Excel Ledger Mock Data
 const employees = [
-    { id: "EMP001", name: "Arjun Singh", branch: "Indore Hub", node: "Node V.1", baseGross: 120000, daysWorked: 16, status: "Active" },
-    { id: "EMP002", name: "Meera Das", branch: "Bhopal Unit", node: "Node V.2", baseGross: 85000, daysWorked: 15, status: "Active" },
-    { id: "EMP003", name: "Rahul Sharma", branch: "Indore Hub", node: "Node V.1", baseGross: 95000, daysWorked: 16, status: "Active" },
-    { id: "EMP004", name: "Anita Kapoor", branch: "Satna Node", node: "Node V.3", baseGross: 115000, daysWorked: 16, status: "Active" },
-    { id: "EMP005", name: "Vikram Raj", branch: "Indore Hub", node: "Node V.1", baseGross: 140000, daysWorked: 14, status: "On Leave" },
-    { id: "EMP006", name: "Priya Singh", branch: "Bhopal Unit", node: "Node V.2", baseGross: 75000, daysWorked: 16, status: "Active" },
+    { 
+        id: 1, 
+        employeeCode: "EMP001",
+        name: "SWAPNIL JAISWAL", 
+        location: "Indore",
+        company: "BP Marketing",
+        designation: "Accounts Head",
+        fixedGross: 35000, 
+        pfApplicable: false,
+        pfCeiling: false,
+        esicApplicable: false,
+        absentDays: 0,
+        bonus: 0,
+        previousArrears: 0,
+        incentive: 0,
+        loanDeduction: 0, 
+        otherDeduction: 0,
+        status: "Verified",
+    },
+    { 
+        id: 2, 
+        employeeCode: "EMP002",
+        name: "SIMRAN KATARIYA", 
+        location: "Indore",
+        company: "BP Marketing",
+        designation: "Sr . Commercial exe",
+        fixedGross: 25000, 
+        pfApplicable: true,
+        pfCeiling: true,
+        esicApplicable: false,
+        absentDays: 0,
+        bonus: 0,
+        previousArrears: 0,
+        incentive: 0,
+        loanDeduction: 1415, 
+        otherDeduction: 0,
+        status: "Draft",
+    },
+    { 
+        id: 8, 
+        employeeCode: "EMP008",
+        name: "SANDEEP CHOUHAN", 
+        location: "Indore",
+        company: "BP Marketing",
+        designation: "Supervisor",
+        fixedGross: 13100, 
+        pfApplicable: true,
+        pfCeiling: true,
+        esicApplicable: false,
+        absentDays: 3,
+        bonus: 0,
+        previousArrears: 0,
+        incentive: 0,
+        loanDeduction: 0, 
+        otherDeduction: 0,
+        status: "Verified",
+    },
+    { 
+        id: 39, 
+        employeeCode: "EMP039",
+        name: "SHRAVAN MUNIYA", 
+        location: "Ratlam",
+        company: "Apaar Logistics",
+        designation: "SR.SUPERVISOR",
+        fixedGross: 16000, 
+        pfApplicable: true,
+        pfCeiling: true,
+        esicApplicable: true,
+        absentDays: 0,
+        bonus: 0,
+        previousArrears: 0,
+        incentive: 0,
+        loanDeduction: 0, 
+        otherDeduction: 0,
+        status: "Paid",
+    },
+    { 
+        id: 3, 
+        employeeCode: "EMP003",
+        name: "SAGAR BAKSHE", 
+        location: "Indore",
+        company: "BP Marketing",
+        designation: "Depot Manager",
+        fixedGross: 40000, 
+        pfApplicable: true,
+        pfCeiling: true,
+        esicApplicable: false,
+        absentDays: 0,
+        bonus: 0,
+        previousArrears: 0,
+        incentive: 0,
+        loanDeduction: 0, 
+        otherDeduction: 0,
+        status: "Verified",
+    },
+    { 
+        id: 4, 
+        employeeCode: "EMP004",
+        name: "ABHISHEK KURIL", 
+        location: "Indore",
+        company: "BP Marketing",
+        designation: "Commercial Exe",
+        fixedGross: 18499, 
+        pfApplicable: true,
+        pfCeiling: true,
+        esicApplicable: false,
+        absentDays: 0,
+        bonus: 0,
+        previousArrears: 0,
+        incentive: 0,
+        loanDeduction: 0, 
+        otherDeduction: 0,
+        status: "Draft",
+    }
 ];
 
 export default function PayrollAnalyticsPage() {
     const [searchQuery, setSearchQuery] = useState("");
-    const TOTAL_MONTH_DAYS = 31;
+    const TOTAL_MONTH_DAYS = 28; // Standard Excel Billing Cycle Days
 
-    // Calculations
+    // Calculations based on 100% accurate client Excel math
     const processedData = employees.map(emp => {
-        const dailyCost = Math.round(emp.baseGross / TOTAL_MONTH_DAYS);
-        const earnedTillDate = dailyCost * emp.daysWorked;
-        const projectedMonthly = dailyCost * TOTAL_MONTH_DAYS;
+        const res = calculateProductionNet(emp);
+        const payableDays = TOTAL_MONTH_DAYS - emp.absentDays;
+        
+        // Dynamic Company Cost / Day = Prorated Total Monthly CTC divided by cycle days
+        const dailyCost = Math.round(res.totalMonthlyCTC / TOTAL_MONTH_DAYS);
+        
+        // Earned Liability (Payout to pay employee till today)
+        const earnedTillDate = res.net;
+        
+        // Projected Monthly Liability (Full Cost to Company)
+        const projectedMonthly = res.totalMonthlyCTC;
+
         return {
             ...emp,
             dailyCost,
             earnedTillDate,
-            projectedMonthly
+            projectedMonthly,
+            payableDays,
+            fixedGross: emp.fixedGross
         };
     });
 
@@ -54,7 +233,7 @@ export default function PayrollAnalyticsPage() {
 
     const filteredData = processedData.filter(emp => 
         emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-        emp.id.toLowerCase().includes(searchQuery.toLowerCase())
+        emp.employeeCode.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
     return (
@@ -75,7 +254,7 @@ export default function PayrollAnalyticsPage() {
                             variant="ghost" 
                             className="h-11 px-6 rounded-xl font-black text-[9px] uppercase tracking-widest text-slate-500 hover:bg-white hover:shadow-sm transition-all"
                         >
-                            <CalendarDays className="h-4 w-4 mr-2" /> May 2026
+                            <CalendarDays className="h-4 w-4 mr-2" /> FEB 2026
                         </Button>
                         <Button 
                             className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[9px] tracking-[0.3em] px-6 h-11 rounded-xl shadow-md hover:translate-y-[-2px] transition-all"
@@ -160,13 +339,14 @@ export default function PayrollAnalyticsPage() {
                                             <div className="flex flex-col">
                                                 <span className="text-sm font-black text-slate-900 italic tracking-tight uppercase group-hover:translate-x-1 transition-transform">{emp.name}</span>
                                                 <div className="flex items-center gap-1.5 mt-1">
-                                                    <Badge className="bg-slate-100 text-slate-500 border-none font-black text-[7px] h-4 px-1.5 rounded uppercase tracking-widest">{emp.id}</Badge>
-                                                    <Badge className="bg-indigo-50 text-indigo-500 border-none font-black text-[7px] h-4 px-1.5 rounded uppercase tracking-widest">{emp.branch}</Badge>
+                                                    <Badge className="bg-slate-100 text-slate-500 border-none font-black text-[7px] h-4 px-1.5 rounded uppercase tracking-widest">{emp.employeeCode}</Badge>
+                                                    <Badge className="bg-indigo-50 text-indigo-500 border-none font-black text-[7px] h-4 px-1.5 rounded uppercase tracking-widest">{emp.designation}</Badge>
+                                                    <Badge className="bg-slate-50 text-slate-400 border-none font-black text-[7px] h-4 px-1.5 rounded uppercase tracking-widest">{emp.location}</Badge>
                                                 </div>
                                             </div>
                                         </TableCell>
                                         <TableCell>
-                                            <span className="text-xs font-black text-slate-900">₹{emp.baseGross.toLocaleString()}</span>
+                                            <span className="text-xs font-black text-slate-900">₹{emp.fixedGross.toLocaleString()}</span>
                                             <p className="text-[7px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Base CTC</p>
                                         </TableCell>
                                         <TableCell>
@@ -176,11 +356,11 @@ export default function PayrollAnalyticsPage() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col gap-1.5">
-                                                <span className="text-[10px] font-black text-slate-900">{emp.daysWorked} <span className="text-slate-400">/ {TOTAL_MONTH_DAYS}</span></span>
+                                                <span className="text-[10px] font-black text-slate-900">{emp.payableDays} <span className="text-slate-400">/ {TOTAL_MONTH_DAYS}</span></span>
                                                 <div className="h-1.5 w-full max-w-[80px] bg-slate-100 rounded-full overflow-hidden">
                                                     <div 
                                                         className="h-full bg-[#D9F99D] rounded-full" 
-                                                        style={{ width: `${(emp.daysWorked / TOTAL_MONTH_DAYS) * 100}%` }}
+                                                        style={{ width: `${(emp.payableDays / TOTAL_MONTH_DAYS) * 100}%` }}
                                                     />
                                                 </div>
                                             </div>

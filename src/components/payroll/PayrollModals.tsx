@@ -46,49 +46,64 @@ export function GlobalRulesSheet({
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Basic Salary</Label>
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Fixed Gross Salary</Label>
                                         <Input 
                                             type="number" 
-                                            value={selectedEmployee.base}
-                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'base', parseInt(e.target.value) || 0)}
+                                            value={selectedEmployee.fixedGross || 0}
+                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'fixedGross', parseInt(e.target.value) || 0)}
                                             className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px] focus:bg-white transition-all" 
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">HRA Allowance</Label>
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Previous Arrears</Label>
                                         <Input 
                                             type="number" 
-                                            value={selectedEmployee.hra}
-                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'hra', parseInt(e.target.value) || 0)}
+                                            value={selectedEmployee.previousArrears || 0}
+                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'previousArrears', parseInt(e.target.value) || 0)}
                                             className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px] focus:bg-white transition-all" 
                                         />
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Special</Label>
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Bonus</Label>
                                         <Input 
                                             type="number" 
-                                            value={selectedEmployee.allowance}
-                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'allowance', parseInt(e.target.value) || 0)}
+                                            value={selectedEmployee.bonus || 0}
+                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'bonus', parseInt(e.target.value) || 0)}
                                             className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px]" 
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Conv.</Label>
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Incentive</Label>
                                         <Input 
                                             type="number" 
-                                            value={selectedEmployee.conveyance}
-                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'conveyance', parseInt(e.target.value) || 0)}
+                                            value={selectedEmployee.incentive || 0}
+                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'incentive', parseInt(e.target.value) || 0)}
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px]" 
+                                        />
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 mb-2 pt-4 border-t border-slate-100">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                    <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Manual Deductions</span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Advance/Loan/TDS</Label>
+                                        <Input 
+                                            type="number" 
+                                            value={selectedEmployee.loanDeduction || 0}
+                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'loanDeduction', parseInt(e.target.value) || 0)}
                                             className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px]" 
                                         />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Medical</Label>
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Other Deduction</Label>
                                         <Input 
                                             type="number" 
-                                            value={selectedEmployee.medical}
-                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'medical', parseInt(e.target.value) || 0)}
+                                            value={selectedEmployee.otherDeduction || 0}
+                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'otherDeduction', parseInt(e.target.value) || 0)}
                                             className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px]" 
                                         />
                                     </div>
@@ -134,7 +149,7 @@ export function GlobalRulesSheet({
                                 <div className="grid grid-cols-2 gap-6 relative z-10">
                                     <div>
                                         <p className="text-[8px] font-black uppercase text-slate-500 tracking-[0.3em] mb-1">LOP Deduction</p>
-                                        <h4 className="text-lg font-black text-rose-400 tracking-tighter italic">₹{calculateProductionNet(selectedEmployee).lop.toLocaleString()}</h4>
+                                        <h4 className="text-lg font-black text-rose-400 tracking-tighter italic">₹{calculateProductionNet(selectedEmployee)?.lop?.toLocaleString()}</h4>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-[8px] font-black uppercase text-[#D9F99D] tracking-[0.3em] mb-1">Net In-Hand</p>
