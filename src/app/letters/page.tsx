@@ -1,371 +1,274 @@
 "use client";
 
 import { useState } from "react";
-import { 
-    FileType, 
-    FileText, 
-    Download, 
-    Eye, 
-    Edit3, 
-    Plus, 
-    CheckCircle2, 
-    Search,
-    Clock,
-    FileSignature,
-    ArrowUpRight,
-    Send,
-    Mail
+import {
+  FileType, FileText, Download, Eye,
+  CheckCircle2, Search, Clock, FileSignature, ArrowUpRight, Mail
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { 
-    Dialog, 
-    DialogContent, 
-    DialogHeader, 
-    DialogTitle, 
-    DialogTrigger,
-    DialogFooter,
-    DialogDescription
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+  DialogFooter, DialogDescription
 } from "@/components/ui/dialog";
+import { Variant1, Variant2, Variant3, Variant4, Variant5 } from "./templateDesigns";
+
+const cn = (...classes: string[]) => classes.filter(Boolean).join(" ");
 
 const templates = [
-    { id: "TMP001", name: "Offer Letter", category: "Onboarding", status: "Active", lastUpdated: "Feb 12, 2026", type: "PDF/DOCX" },
-    { id: "TMP002", name: "Appointment Letter", category: "Onboarding", status: "Active", lastUpdated: "Jan 05, 2026", type: "PDF" },
-    { id: "TMP003", name: "Warning Letter", category: "Disciplinary", status: "Active", lastUpdated: "Dec 12, 2025", type: "PDF" },
-    { id: "TMP004", name: "Non-performance Letter", category: "Disciplinary", status: "Active", lastUpdated: "Feb 14, 2026", type: "PDF/DOCX" },
-    { id: "TMP005", name: "Absenteeism Letter", category: "Disciplinary", status: "Active", lastUpdated: "Feb 15, 2026", type: "PDF" },
+  { id: "TMP001", name: "Offer Letter",           category: "Onboarding",   status: "Active", lastUpdated: "Feb 12, 2026" },
+  { id: "TMP002", name: "Appointment Letter",      category: "Onboarding",   status: "Active", lastUpdated: "Jan 05, 2026" },
+  { id: "TMP003", name: "Warning Letter",          category: "Disciplinary", status: "Active", lastUpdated: "Dec 12, 2025" },
+  { id: "TMP004", name: "Non-performance Letter",  category: "Disciplinary", status: "Active", lastUpdated: "Feb 14, 2026" },
+  { id: "TMP005", name: "Absenteeism Letter",      category: "Disciplinary", status: "Active", lastUpdated: "Feb 15, 2026" },
 ];
 
+const variantMeta = [
+  { id: 1, label: "Standard Corporate",  desc: "Navy bar · Serif · Two-col header"    },
+  { id: 2, label: "Modern Minimalist",   desc: "Centered logo · Light gray · Sans"    },
+  { id: 3, label: "Premium Executive",   desc: "Dark navy bleed · Accent title band"  },
+  { id: 4, label: "Creative Edge",       desc: "Bold side bar · Big type treatment"   },
+  { id: 5, label: "Classic Formal",      desc: "Double-border frame · Old-world look" },
+];
+
+const VariantMap: Record<number, React.FC<{ templateId: string }>> = {
+  1: Variant1, 2: Variant2, 3: Variant3, 4: Variant4, 5: Variant5,
+};
+
 export default function LettersPage() {
-    const [searchTerm, setSearchTerm] = useState("");
-    const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
-    const [selectedVariant, setSelectedVariant] = useState(1);
+  const [searchTerm,       setSearchTerm]       = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<typeof templates[0] | null>(null);
+  const [selectedVariant,  setSelectedVariant]  = useState(1);
 
-    const getVariantStyles = (variant: number) => {
-        switch(variant) {
-            case 1: return { wrapper: "font-serif text-slate-800 border-t-[16px] border-slate-900", header: "border-b-2 border-slate-900 pb-6", title: "text-2xl font-black uppercase italic tracking-tighter" };
-            case 2: return { wrapper: "font-sans text-slate-600 bg-[#FAFAFA]", header: "border-b border-slate-200 pb-8 text-center", title: "text-3xl font-light tracking-widest text-slate-800 uppercase" };
-            case 3: return { wrapper: "font-serif text-slate-900 border-x-4 border-indigo-900", header: "bg-indigo-900 text-white p-12 -mx-12 -mt-12 mb-8 shadow-md", title: "text-3xl font-black uppercase tracking-widest text-indigo-50" };
-            case 4: return { wrapper: "font-sans text-slate-800 border-l-[24px] border-[#D9F99D]", header: "pb-6", title: "text-4xl font-black uppercase tracking-tighter text-slate-900" };
-            case 5: return { wrapper: "font-serif text-black border-[6px] border-double border-slate-900 p-10 m-2", header: "border-b-[6px] border-double border-slate-900 pb-6 text-center", title: "text-4xl font-serif uppercase tracking-widest" };
-            default: return { wrapper: "", header: "", title: "" };
-        }
-    };
+  const filtered = templates.filter(t =>
+    t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.category.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-    const styles = getVariantStyles(selectedVariant);
+  const PreviewComponent = selectedTemplate ? VariantMap[selectedVariant] : null;
 
-    return (
-        <div className="space-y-10 pb-20">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
-                <div>
-                    <h1 className="text-xl font-black text-slate-900 flex items-center gap-3 italic uppercase tracking-tighter underline underline-offset-4 decoration-[#D9F99D] decoration-2">
-                        <FileType className="h-6 w-6 text-rose-500" /> Letters & Docs
-                    </h1>
-                    <p className="text-[8px] font-black text-slate-400 mt-4 uppercase tracking-[0.4em]">Create and manage official letters and documents.</p>
+  return (
+    <div className="space-y-10 pb-20">
+
+      {/* ── Page Header ── */}
+      <div className="px-2">
+        <h1 className="text-xl font-black text-slate-900 flex items-center gap-3 italic uppercase tracking-tighter underline underline-offset-4 decoration-[#D9F99D] decoration-2">
+          <FileType className="h-6 w-6 text-rose-500" /> Letters &amp; Docs
+        </h1>
+        <p className="text-[8px] font-black text-slate-400 mt-4 uppercase tracking-[0.4em]">
+          Create and manage official letters and documents.
+        </p>
+      </div>
+
+      {/* ── Stats ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        {[
+          { label: "Active Templates",  value: `${templates.length} Templates`,  icon: FileSignature, bg: "bg-white"     },
+          { label: "Total Documents",   value: "148 Docs",                        icon: FileText,      bg: "bg-white"     },
+          { label: "Compliance Status", value: "100% Compliant",                  icon: CheckCircle2,  bg: "bg-[#D9F99D]" },
+        ].map((stat, i) => (
+          <Card key={i} className={`${stat.bg} border-none rounded-2xl p-6 shadow-sm flex flex-col justify-between h-36 group hover:shadow-md transition-all`}>
+            <div className="h-9 w-9 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-[#D9F99D]/20 transition-colors">
+              <stat.icon className="h-5 w-5 text-slate-400 group-focus-within:text-slate-900 transition-colors" />
+            </div>
+            <div>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{stat.label}</p>
+              <h3 className="text-lg font-black text-slate-900 uppercase italic tracking-tighter">{stat.value}</h3>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* ── Template Grid ── */}
+      <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden p-1">
+        <CardHeader className="p-6 pb-3 border-none">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div>
+              <CardTitle className="text-lg font-black italic text-slate-900 underline underline-offset-4 decoration-[#D9F99D] decoration-2 uppercase tracking-tighter">
+                Template List
+              </CardTitle>
+              <CardDescription className="text-[8px] font-black text-slate-400 mt-4 uppercase tracking-[0.3em] italic">
+                All official document templates
+              </CardDescription>
+            </div>
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300 group-focus-within:text-slate-900 transition-colors" />
+              <Input
+                placeholder="Search templates..."
+                className="h-10 w-64 pl-12 bg-slate-50 border-none rounded-xl font-bold text-[10px] focus-visible:ring-1 focus-visible:ring-[#D9F99D] shadow-inner"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filtered.map((template) => (
+              <Card key={template.id} className="border-2 border-slate-50 rounded-2xl p-5 hover:border-[#D9F99D] hover:bg-slate-50/50 transition-all group relative overflow-hidden">
+                <div className="flex items-start justify-between relative z-10">
+                  <div className="space-y-3">
+                    <Badge className={cn(
+                      "border-none font-black text-[7px] uppercase tracking-widest px-2.5 h-4.5 rounded-md",
+                      template.status === "Active" ? "bg-[#D1FAE5] text-emerald-600" : "bg-[#FEF3C7] text-amber-600"
+                    )}>
+                      {template.status}
+                    </Badge>
+                    <h3 className="text-lg font-black text-slate-900 uppercase italic tracking-tighter group-hover:translate-x-1 transition-transform">
+                      {template.name}
+                    </h3>
+                    <div className="flex items-center gap-4">
+                      <div className="space-y-0.5">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Category</p>
+                        <p className="text-[9px] font-bold text-slate-600 uppercase">{template.category}</p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">ID</p>
+                        <p className="text-[9px] font-bold text-slate-600 uppercase">{template.id}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost" size="icon"
+                    className="h-9 w-9 rounded-lg bg-white border-2 border-slate-50 hover:bg-[#D9F99D] hover:border-[#D9F99D] transition-all"
+                    onClick={() => { setSelectedTemplate(template); setSelectedVariant(1); }}
+                  >
+                    <Eye className="h-4 w-4 text-slate-400" />
+                  </Button>
                 </div>
-                <Button className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[9px] tracking-widest px-8 h-11 rounded-2xl shadow-xl hover:translate-y-[-2px] transition-all flex items-center gap-2">
-                    <Plus className="h-4 w-4 stroke-[3]" /> Create Template
-                </Button>
+                <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity rotate-12">
+                  <FileText className="h-24 w-24" />
+                </div>
+                <div className="mt-6 flex items-center justify-between border-t border-slate-50 pt-3 relative z-10">
+                  <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest italic flex items-center gap-2">
+                    <Clock className="h-2.5 w-2.5" /> Last Updated: {template.lastUpdated}
+                  </p>
+                  <Button
+                    onClick={() => { setSelectedTemplate(template); setSelectedVariant(1); }}
+                    variant="link"
+                    className="text-rose-500 font-black uppercase text-[8px] tracking-widest p-0 h-auto"
+                  >
+                    Generate <ArrowUpRight className="h-2.5 w-2.5 ml-1" />
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Generate Dialog ── */}
+      <Dialog open={!!selectedTemplate} onOpenChange={(val) => !val && setSelectedTemplate(null)}>
+        <DialogContent
+          className="rounded-2xl p-0 overflow-hidden border-none shadow-2xl [&>button]:text-white [&>button]:top-5 [&>button]:right-5 [&>button]:z-50 [&>button]:bg-white/10 [&>button]:rounded-full [&>button]:p-1"
+          style={{ width: '98vw', maxWidth: 1600, height: '95vh' }}
+        >
+          {/* Hidden title for screen-reader accessibility (Radix requirement) */}
+          <DialogTitle className="sr-only">
+            {selectedTemplate?.name ?? "Document Generator"}
+          </DialogTitle>
+          <div className="flex h-full w-full overflow-hidden">
+
+            {/* ── A4 Preview ── */}
+            <div className="flex-1 min-w-0 bg-slate-300 overflow-auto flex items-start justify-center p-8">
+              <div className="shrink-0 shadow-2xl" style={{ width: 794 }}>
+                {PreviewComponent && selectedTemplate && (
+                  <PreviewComponent templateId={selectedTemplate.id} />
+                )}
+              </div>
             </div>
 
-            {/* Template Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {[
-                    { label: "Active Templates", value: "12 Templates", icon: FileSignature, bg: "bg-white" },
-                    { label: "Total Documents", value: "2,401 Docs", icon: FileText, bg: "bg-white" },
-                    { label: "Compliance Status", value: "100% Compliant", icon: CheckCircle2, bg: "bg-[#D9F99D]" },
-                ].map((stat, i) => (
-                    <Card key={i} className={`${stat.bg} border-none rounded-2xl p-6 shadow-sm flex flex-col justify-between h-36 group hover:shadow-md transition-all`}>
-                        <div className="h-9 w-9 bg-slate-50 rounded-xl flex items-center justify-center group-hover:bg-[#D9F99D]/20 transition-colors">
-                            <stat.icon className="h-5 w-5 text-slate-400 group-focus-within:text-slate-900 transition-colors" />
-                        </div>
-                        <div>
-                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{stat.label}</p>
-                            <h3 className="text-lg font-black text-slate-900 uppercase italic tracking-tighter">{stat.value}</h3>
-                        </div>
-                    </Card>
-                ))}
+            {/* ── Right Panel ── */}
+            <div style={{ width: 320, minWidth: 320, background: '#0f172a', display: 'flex', flexDirection: 'column', borderLeft: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+              <div style={{ flex: 1, overflowY: 'auto', padding: 32, display: 'flex', flexDirection: 'column', gap: 24 }}>
+
+                {/* Title */}
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 900, textTransform: 'uppercase', fontStyle: 'italic', letterSpacing: '-0.5px', color: '#d9f99d', margin: 0 }}>
+                    {selectedTemplate?.name}
+                  </h3>
+                  <p style={{ fontSize: 8, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '2px', marginTop: 4 }}>
+                    {selectedTemplate?.id} · {selectedTemplate?.category}
+                  </p>
+                </div>
+
+                {/* Variant Picker */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <p style={{ fontSize: 7, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '3px', margin: 0 }}>Design Variant</p>
+                  {variantMeta.map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => setSelectedVariant(v.id)}
+                      style={{
+                        width: '100%', textAlign: 'left', borderRadius: 12, padding: '10px 12px',
+                        border: selectedVariant === v.id ? '1px solid #d9f99d' : '1px solid rgba(255,255,255,0.1)',
+                        background: selectedVariant === v.id ? 'rgba(217,249,157,0.1)' : 'rgba(255,255,255,0.04)',
+                        cursor: 'pointer', transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', color: selectedVariant === v.id ? '#d9f99d' : '#e2e8f0' }}>{v.label}</div>
+                      <div style={{ fontSize: 8, fontWeight: 600, color: selectedVariant === v.id ? '#a3e635' : '#94a3b8', marginTop: 2 }}>{v.desc}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Employee */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <p style={{ fontSize: 7, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '3px', margin: 0 }}>Select Employee</p>
+                  <select style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, height: 40, padding: '0 12px', fontSize: 10, fontWeight: 700, color: '#e2e8f0', outline: 'none' }}>
+                    <option style={{ background: '#1e293b', color: '#e2e8f0' }}>Search employee…</option>
+                    <option style={{ background: '#1e293b', color: '#e2e8f0' }}>Arjun Singh</option>
+                    <option style={{ background: '#1e293b', color: '#e2e8f0' }}>Priya Sharma</option>
+                    <option style={{ background: '#1e293b', color: '#e2e8f0' }}>Rahul Mehta</option>
+                  </select>
+                </div>
+
+                {/* Dynamic Fields */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <p style={{ fontSize: 7, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '3px', margin: 0 }}>Dynamic Fields</p>
+                  <div style={{ background: 'rgba(255,255,255,0.04)', padding: 12, borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {["[Employee_Name]","[Job_Title]","[Date]","[Department]","[Office_Location]"].map(f => (
+                      <div key={f} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8' }}>{f}</span>
+                        <span style={{ fontSize: 7, fontWeight: 900, color: '#d9f99d', textTransform: 'uppercase' }}>Auto</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Format */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 20, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <p style={{ fontSize: 7, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '3px', margin: 0 }}>Output Format</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    <button style={{ background: '#d9f99d', color: '#0f172a', fontWeight: 900, fontSize: 8, height: 36, borderRadius: 8, border: 'none', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px' }}>PDF</button>
+                    <button style={{ background: 'rgba(255,255,255,0.05)', color: '#e2e8f0', fontWeight: 900, fontSize: 8, height: 36, borderRadius: 8, border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '1px' }}>DOCX</button>
+                  </div>
+                </div>
+
+                {/* Email toggle */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input type="checkbox" defaultChecked style={{ accentColor: '#d9f99d', width: 12, height: 12 }} />
+                  <span style={{ fontSize: 9, fontWeight: 700, color: '#cbd5e1', textTransform: 'uppercase', letterSpacing: '1px' }}>Enable Email Auto-Send</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ padding: '20px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <button style={{ width: '100%', background: '#d9f99d', color: '#0f172a', fontWeight: 900, fontSize: 9, height: 44, borderRadius: 12, border: 'none', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Mail style={{ width: 14, height: 14 }} /> Email &amp; Download
+                </button>
+                <button style={{ width: '100%', background: 'transparent', color: '#e2e8f0', fontWeight: 900, fontSize: 9, height: 44, borderRadius: 12, border: '1px solid rgba(255,255,255,0.12)', cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <Download style={{ width: 14, height: 14 }} /> Download Only
+                </button>
+              </div>
             </div>
 
-            {/* Template Grid */}
-            <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden p-1">
-                <CardHeader className="p-6 pb-3 border-none">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                        <div>
-                            <CardTitle className="text-lg font-black italic text-slate-900 underline underline-offset-4 decoration-[#D9F99D] decoration-2 uppercase tracking-tighter">Template List</CardTitle>
-                            <CardDescription className="text-[8px] font-black text-slate-400 mt-4 uppercase tracking-[0.3em] italic">All official document templates</CardDescription>
-                        </div>
-                        <div className="relative group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300 group-focus-within:text-slate-900 transition-colors" />
-                            <Input 
-                                placeholder="Search templates..." 
-                                className="h-10 w-64 pl-12 bg-slate-50 border-none rounded-xl font-bold text-[10px] focus-visible:ring-1 focus-visible:ring-[#D9F99D] shadow-inner"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-                    </div>
-                </CardHeader>
-                <CardContent className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {templates.map((template) => (
-                            <Card key={template.id} className="border-2 border-slate-50 rounded-2xl p-5 hover:border-[#D9F99D] hover:bg-slate-50/50 transition-all group relative overflow-hidden">
-                                <div className="flex items-start justify-between relative z-10">
-                                    <div className="space-y-3">
-                                        <Badge className={cn(
-                                            "border-none font-black text-[7px] uppercase tracking-widest px-2.5 h-4.5 rounded-md",
-                                            template.status === 'Active' ? 'bg-[#D1FAE5] text-emerald-600' : 'bg-[#FEF3C7] text-amber-600'
-                                        )}>
-                                            {template.status}
-                                        </Badge>
-                                        <h3 className="text-lg font-black text-slate-900 uppercase italic tracking-tighter group-hover:translate-x-1 transition-transform">{template.name}</h3>
-                                        <div className="flex items-center gap-4">
-                                            <div className="space-y-0.5">
-                                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Category</p>
-                                                <p className="text-[9px] font-bold text-slate-600 uppercase">{template.category}</p>
-                                            </div>
-                                            <div className="space-y-0.5">
-                                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">ID</p>
-                                                <p className="text-[9px] font-bold text-slate-600 uppercase">{template.id}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col gap-2">
-                                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg bg-white border-2 border-slate-50 hover:bg-[#D9F99D] hover:border-[#D9F99D] transition-all" onClick={() => setSelectedTemplate(template)}>
-                                            <Eye className="h-4 w-4 text-slate-400 group-hover:text-slate-900" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg bg-white border-2 border-slate-50 hover:bg-slate-900 hover:border-slate-900 transition-all">
-                                            <Edit3 className="h-4 w-4 text-slate-400 group-hover:text-white" />
-                                        </Button>
-                                    </div>
-                                </div>
-                                <div className="absolute -right-3 -bottom-3 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity rotate-12">
-                                    <FileText className="h-24 w-24" />
-                                </div>
-                                <div className="mt-6 flex items-center justify-between border-t border-slate-50 pt-3 relative z-10">
-                                    <p className="text-[8px] font-black text-slate-300 uppercase tracking-widest italic flex items-center gap-2">
-                                        <Clock className="h-2.5 w-2.5" /> Last Updated: {template.lastUpdated}
-                                    </p>
-                                    <Button onClick={() => setSelectedTemplate(template)} variant="link" className="text-rose-500 font-black uppercase text-[8px] tracking-widest p-0 h-auto">Generate <ArrowUpRight className="h-2.5 w-2.5 ml-1" /></Button>
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Preview Dialog (Mock) */}
-            <Dialog open={!!selectedTemplate} onOpenChange={(val) => !val && setSelectedTemplate(null)}>
-                <DialogContent className="max-w-6xl sm:max-w-6xl w-[95vw] h-[90vh] rounded-2xl p-0 overflow-hidden border-none shadow-2xl [&>button]:text-white [&>button]:top-6 [&>button]:right-6 [&>button]:z-50 [&>button]:bg-white/10 [&>button]:rounded-full [&>button]:p-1">
-                    <div className="flex h-full w-full">
-                        <div className="flex-1 bg-slate-200 p-4 sm:p-8 overflow-auto custom-scrollbar relative flex items-start justify-center">
-                            <div className={cn("bg-white p-12 shadow-2xl w-[794px] min-h-[1123px] shrink-0 flex flex-col relative transition-all duration-300", styles.wrapper)}>
-                                
-                                {/* Dynamic Header */}
-                                {selectedVariant === 3 ? (
-                                    <div className={styles.header}>
-                                        <div className="flex justify-between items-end">
-                                            <div>
-                                                <h2 className={styles.title}>TRIPTAY LOGISTICS</h2>
-                                                <p className="text-[10px] font-bold uppercase tracking-widest mt-2 text-indigo-200">Office: Indore Hub</p>
-                                            </div>
-                                            <div className="text-right text-indigo-100">
-                                                <p className="text-[10px] font-bold uppercase">Ref: TL/OFF/2026/102</p>
-                                                <p className="text-[10px] font-bold uppercase mt-0.5">Date: Feb 15, 2026</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : selectedVariant === 2 || selectedVariant === 5 ? (
-                                    <div className={styles.header}>
-                                        <h2 className={styles.title}>TRIPTAY LOGISTICS</h2>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest mt-2">Office: Indore Hub</p>
-                                        <div className="flex justify-between w-full mt-8 text-left">
-                                            <p className="text-[10px] font-bold uppercase">Ref: TL/OFF/2026/102</p>
-                                            <p className="text-[10px] font-bold uppercase">Date: Feb 15, 2026</p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className={cn("flex justify-between items-start", styles.header)}>
-                                        <div>
-                                            <h2 className={styles.title}>TRIPTAY LOGISTICS</h2>
-                                            <p className="text-[8px] font-bold uppercase tracking-widest mt-1.5">Office: Indore Hub</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-[10px] font-bold uppercase">Ref: TL/OFF/2026/102</p>
-                                            <p className="text-[10px] font-bold uppercase mt-0.5">Date: Feb 15, 2026</p>
-                                        </div>
-                                    </div>
-                                )}
-                                
-                                <div className="flex-1 mt-10">
-                                    {selectedTemplate?.id === 'TMP001' && (
-                                        <div className="space-y-4">
-                                            <p className="font-bold text-base text-center underline underline-offset-4 mb-8">JOB OFFER LETTER</p>
-                                            <p className="text-xs leading-relaxed">
-                                                Dear <strong>[Employee_Name]</strong>,<br /><br />
-                                                We are thrilled to offer you the position of <strong>[Job_Title]</strong> at Triptay Logistics. We believe that your skills and experience will be an excellent match for our company.
-                                                <br /><br />
-                                                As discussed, your starting date will be <strong>[Date]</strong>. Please find the details of your compensation package below.
-                                            </p>
-                                            <div className="bg-slate-50 border border-slate-200 p-6 rounded-xl space-y-3 mt-6">
-                                                <p className="text-[8px] font-black uppercase tracking-widest border-b border-slate-200 pb-1.5">Compensation Overview</p>
-                                                <div className="grid grid-cols-2 gap-3 text-[10px] font-bold">
-                                                    <span>Basic Salary:</span> <span className="text-right">₹ 24,000 / mo</span>
-                                                    <span>HRA (Rent):</span> <span className="text-right">₹ 12,000 / mo</span>
-                                                    <span>Special Allowance:</span> <span className="text-right">₹ 4,000 / mo</span>
-                                                    <span className="text-emerald-600 pt-2 border-t border-slate-200">Total Gross:</span> 
-                                                    <span className="text-emerald-600 text-right pt-2 border-t border-slate-200">₹ 40,000 / mo</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {selectedTemplate?.id === 'TMP002' && (
-                                        <div className="space-y-4">
-                                            <p className="font-bold text-base text-center underline underline-offset-4 mb-8">APPOINTMENT LETTER</p>
-                                            <p className="text-xs leading-relaxed">
-                                                Dear <strong>[Employee_Name]</strong>,<br /><br />
-                                                Further to your acceptance of our offer, we are pleased to appoint you as <strong>[Job_Title]</strong> at Triptay Logistics, effective from <strong>[Date]</strong>.
-                                                <br /><br />
-                                                You will be on probation for a period of 6 months. Your employment will be governed by the standard policies and guidelines of the organization, which may be amended from time to time.
-                                                <br /><br />
-                                                We welcome you to the team and wish you a long and successful career with us.
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {selectedTemplate?.id === 'TMP003' && (
-                                        <div className="space-y-4">
-                                            <p className="font-bold text-base text-center underline underline-offset-4 mb-8 text-rose-600">WARNING LETTER</p>
-                                            <p className="text-xs leading-relaxed">
-                                                Dear <strong>[Employee_Name]</strong>,<br /><br />
-                                                This letter serves as an official warning regarding your recent conduct on <strong>[Date]</strong>. 
-                                                It has been brought to our attention that you have violated company policy regarding standard operational procedures.
-                                                <br /><br />
-                                                At Triptay Logistics, we maintain strict adherence to our professional guidelines. We expect immediate improvement in this matter. 
-                                                Failure to rectify this behavior may result in further disciplinary action, up to and including termination of employment.
-                                                <br /><br />
-                                                A copy of this letter will be placed in your official personnel file.
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {selectedTemplate?.id === 'TMP004' && (
-                                        <div className="space-y-4">
-                                            <p className="font-bold text-base text-center underline underline-offset-4 mb-8 text-amber-600">NOTICE OF NON-PERFORMANCE</p>
-                                            <p className="text-xs leading-relaxed">
-                                                Dear <strong>[Employee_Name]</strong>,<br /><br />
-                                                The purpose of this letter is to formally notify you that your performance as a <strong>[Job_Title]</strong> has fallen below the acceptable standards of Triptay Logistics.
-                                                <br /><br />
-                                                During the recent review cycle ending on <strong>[Date]</strong>, your key performance indicators were significantly below target. 
-                                                You are being placed on a 30-day Performance Improvement Plan (PIP). Your manager will schedule a meeting to define strict deliverables.
-                                                <br /><br />
-                                                If immediate and sustained improvement is not observed within this period, the company will be forced to take further action.
-                                            </p>
-                                        </div>
-                                    )}
-
-                                    {selectedTemplate?.id === 'TMP005' && (
-                                        <div className="space-y-4">
-                                            <p className="font-bold text-base text-center underline underline-offset-4 mb-8 text-rose-600">NOTICE CONCERNING ABSENTEEISM</p>
-                                            <p className="text-xs leading-relaxed">
-                                                Dear <strong>[Employee_Name]</strong>,<br /><br />
-                                                This letter is to formally address your unauthorized absences from work. Our records indicate that you have been absent without prior approval or valid notification on multiple occasions, most recently on <strong>[Date]</strong>.
-                                                <br /><br />
-                                                Unplanned absenteeism severely disrupts our operational workflows at Triptay Logistics. You are hereby required to provide a valid explanation for your absences within 48 hours of receiving this notice.
-                                                <br /><br />
-                                                Please be advised that continued unauthorized absence will be considered as absconding from duty, leading to immediate termination of your employment contract.
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="mt-auto pt-12 flex justify-between">
-                                    <div className="space-y-1.5 text-center">
-                                        <div className="h-0.5 bg-slate-900 w-32 mx-auto" />
-                                        <p className="text-[8px] font-black uppercase">Authorized Signatory</p>
-                                    </div>
-                                    <div className="space-y-1.5 text-center opacity-20">
-                                        <div className="h-0.5 bg-slate-900 w-32 mx-auto" />
-                                        <p className="text-[8px] font-black uppercase">Employee Signature</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div className="w-80 bg-slate-900 p-8 flex flex-col justify-between text-white border-l border-white/5 overflow-y-auto">
-                            <div className="space-y-6">
-                                <h3 className="text-lg font-black uppercase italic tracking-tighter text-[#D9F99D] pr-8">Settings</h3>
-                                <div className="space-y-5">
-                                    <div className="space-y-1.5">
-                                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Select Employee</p>
-                                        <select className="w-full bg-white/5 border border-white/10 rounded-lg h-10 px-3 text-[10px] font-bold outline-none text-slate-300">
-                                            <option>Search...</option>
-                                            <option>Arjun Singh</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-1.5 border-t border-white/10 pt-4">
-                                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Design Variant</p>
-                                        <select 
-                                            value={selectedVariant}
-                                            onChange={(e) => setSelectedVariant(Number(e.target.value))}
-                                            className="w-full bg-white/5 border border-white/10 rounded-lg h-10 px-3 text-[10px] font-bold outline-none text-[#D9F99D]"
-                                        >
-                                            <option value={1}>Standard Corporate</option>
-                                            <option value={2}>Modern Minimalist</option>
-                                            <option value={3}>Premium Executive</option>
-                                            <option value={4}>Creative Edge</option>
-                                            <option value={5}>Classic Formal</option>
-                                        </select>
-                                    </div>
-                                    <div className="space-y-2 border-t border-white/10 pt-4">
-                                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Dynamic Fields</p>
-                                        <div className="bg-white/5 p-3 rounded-xl border border-white/10 space-y-2">
-                                            <div className="flex justify-between items-center text-[9px] font-bold">
-                                                <span className="text-slate-400">[Employee_Name]</span>
-                                                <span className="text-[#D9F99D] uppercase">Auto</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-[9px] font-bold">
-                                                <span className="text-slate-400">[Job_Title]</span>
-                                                <span className="text-[#D9F99D] uppercase">Auto</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-[9px] font-bold">
-                                                <span className="text-slate-400">[Date]</span>
-                                                <span className="text-[#D9F99D] uppercase">Auto</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="space-y-1.5 border-t border-white/10 pt-4">
-                                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Format</p>
-                                        <div className="grid grid-cols-2 gap-1.5">
-                                            <Button className="bg-[#D9F99D] text-slate-900 font-black text-[8px] h-9 rounded-lg hover:bg-white transition-all">PDF</Button>
-                                            <Button className="bg-white/5 text-white border border-white/10 font-black text-[8px] h-9 rounded-lg hover:bg-white/10">DOCX</Button>
-                                        </div>
-                                    </div>
-                                    <div className="pt-2 pb-4">
-                                        <label className="flex items-center gap-2 cursor-pointer group">
-                                            <input type="checkbox" defaultChecked className="rounded border-white/20 bg-white/5 text-[#D9F99D] focus:ring-[#D9F99D] h-3 w-3" />
-                                            <span className="text-[9px] font-bold uppercase text-slate-300 group-hover:text-white transition-colors">Enable Email Auto-Send</span>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="space-y-2 pt-6 mt-auto border-t border-white/10">
-                                <Button className="w-full bg-[#D9F99D] text-slate-900 hover:bg-[#c8ea8a] font-black uppercase text-[9px] tracking-widest h-11 rounded-xl shadow-xl">
-                                    <Mail className="h-3.5 w-3.5 mr-2" /> Email & Download
-                                </Button>
-                                <Button variant="outline" className="w-full bg-transparent border-white/10 text-white hover:bg-white/5 hover:text-white font-black uppercase text-[9px] tracking-widest h-11 rounded-xl">
-                                    <Download className="h-3.5 w-3.5 mr-2" /> Download Only
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
-        </div>
-    );
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
-
-const cn = (...classes: string[]) => classes.filter(Boolean).join(' ');

@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/ThemeContext";
 import {
@@ -38,9 +39,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function SettingsPage() {
     const { fontSize, setFontSize, contrastLevel, setContrastLevel } = useTheme();
+    const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
+    const [selectedHoliday, setSelectedHoliday] = useState<any>(null);
+
+    const handleOpenModal = (holiday?: any) => {
+        setSelectedHoliday(holiday || null);
+        setIsHolidayModalOpen(true);
+    };
 
     return (
         <div className="space-y-10 max-w-6xl mx-auto pb-20">
@@ -67,6 +83,7 @@ export default function SettingsPage() {
                             { value: 'notifications', label: 'Notifications', icon: Bell },
                             { value: 'security', label: 'Security', icon: Shield },
                             { value: 'system', label: 'System', icon: SettingsIcon },
+                            { value: 'holidays', label: 'Company Holidays', icon: Globe },
                         ].map((tab) => (
                             <TabsTrigger
                                 key={tab.value}
@@ -304,6 +321,138 @@ export default function SettingsPage() {
                             <Button className="h-12 px-10 rounded-xl bg-white text-slate-900 hover:bg-slate-50 font-black text-[9px] uppercase tracking-widest shadow-xl transition-all">Contact Support</Button>
                         </div>
                     </div>
+                </TabsContent>
+                <TabsContent value="holidays" className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden p-1.5">
+                        <CardHeader className="p-8 border-none flex flex-col md:flex-row md:items-start justify-between gap-6">
+                            <div>
+                                <CardTitle className="text-xl font-black italic text-slate-900 underline underline-offset-8 decoration-[#D9F99D] decoration-2 uppercase tracking-tighter">Holiday Calendar</CardTitle>
+                                <CardDescription className="text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-[0.2em] leading-relaxed">
+                                    Configure annual public holidays for the company. <br/> These will automatically mark 'H' in the attendance grid.
+                                </CardDescription>
+                            </div>
+                            <Button className="h-11 px-6 rounded-xl bg-slate-900 text-[#D9F99D] hover:bg-black font-black text-[9px] uppercase tracking-widest shadow-xl transition-all flex items-center gap-2">
+                                <Globe className="h-4 w-4" /> Fetch API Data (2026)
+                            </Button>
+                        </CardHeader>
+                        <CardContent className="p-0 border-t border-slate-50 mt-2">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-100">
+                                            <th className="py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">Holiday Name</th>
+                                            <th className="py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">Date Range</th>
+                                            <th className="py-5 px-8 text-[9px] font-black text-slate-400 uppercase tracking-widest">Total Days</th>
+                                            <th className="py-5 px-8 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Controls</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {[
+                                            { name: "Republic Day", date: "Jan 26, 2026", days: 1, status: "Active" },
+                                            { name: "Holi Festival", date: "Mar 25 - Mar 26, 2026", days: 2, status: "Active" },
+                                            { name: "Eid-ul-Fitr", date: "Mar 21, 2026", days: 1, status: "Disabled" },
+                                            { name: "Independence Day", date: "Aug 15, 2026", days: 1, status: "Active" },
+                                            { name: "Diwali Grand Festival", date: "Nov 08 - Nov 11, 2026", days: 4, status: "Active" },
+                                            { name: "Christmas Week", date: "Dec 25 - Dec 26, 2026", days: 2, status: "Active" },
+                                        ].map((holiday, idx) => (
+                                            <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
+                                                <td className="py-5 px-8">
+                                                    <span className="text-sm font-black text-slate-900 italic tracking-tighter uppercase">{holiday.name}</span>
+                                                </td>
+                                                <td className="py-5 px-8">
+                                                    <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">{holiday.date}</span>
+                                                </td>
+                                                <td className="py-5 px-8">
+                                                    <Badge className="bg-slate-100 text-slate-600 border-none font-black text-[10px] uppercase">{holiday.days} Days</Badge>
+                                                </td>
+                                                <td className="py-5 px-8">
+                                                    <div className="flex items-center justify-end gap-6">
+                                                        <Button 
+                                                            onClick={() => handleOpenModal(holiday)}
+                                                            variant="ghost" 
+                                                            className="h-8 px-4 rounded-lg bg-slate-50 opacity-0 group-hover:opacity-100 transition-opacity text-[8px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-900"
+                                                        >
+                                                            Modify Dates
+                                                        </Button>
+                                                        <Switch defaultChecked={holiday.status === "Active"} className="data-[state=checked]:bg-[#D9F99D] data-[state=checked]:border-transparent" />
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div className="p-8 border-t border-slate-50 bg-slate-50/30 flex justify-center">
+                                <Button 
+                                    onClick={() => handleOpenModal()}
+                                    variant="outline" 
+                                    className="h-11 px-8 rounded-xl border-slate-200 border-dashed text-slate-600 font-black text-[9px] uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center gap-2"
+                                >
+                                    + Add Custom Holiday
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Holiday Modal */}
+                    <Dialog open={isHolidayModalOpen} onOpenChange={setIsHolidayModalOpen}>
+                        <DialogContent className="sm:max-w-[425px] border-none shadow-2xl rounded-3xl p-8">
+                            <DialogHeader className="space-y-3">
+                                <div className="h-12 w-12 rounded-2xl flex items-center justify-center mb-2 bg-indigo-50 text-indigo-600">
+                                    <Globe className="h-6 w-6" />
+                                </div>
+                                <DialogTitle className="text-xl font-black italic uppercase text-slate-900 tracking-tighter">
+                                    {selectedHoliday ? 'Modify Holiday Dates' : 'Add Custom Holiday'}
+                                </DialogTitle>
+                                <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-loose">
+                                    Configure the date range for this holiday. It will automatically reflect in the attendance grid.
+                                </DialogDescription>
+                            </DialogHeader>
+                            
+                            <div className="space-y-6 py-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Holiday Name</Label>
+                                    <Input 
+                                        defaultValue={selectedHoliday?.name || ""}
+                                        placeholder="e.g. Foundation Day" 
+                                        className="h-12 rounded-xl bg-slate-50 border-none font-bold text-[11px] px-4"
+                                    />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Start Date</Label>
+                                        <Input 
+                                            type="date"
+                                            className="h-12 rounded-xl bg-slate-50 border-none font-bold text-[11px] px-4"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">End Date</Label>
+                                        <Input 
+                                            type="date"
+                                            className="h-12 rounded-xl bg-slate-50 border-none font-bold text-[11px] px-4"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <DialogFooter className="gap-3 sm:justify-start">
+                                <Button 
+                                    className="flex-1 h-12 rounded-2xl font-black uppercase text-[9px] tracking-widest shadow-lg transition-all bg-slate-900 hover:bg-black text-[#D9F99D]"
+                                    onClick={() => setIsHolidayModalOpen(false)}
+                                >
+                                    Save Config
+                                </Button>
+                                <Button 
+                                    variant="outline" 
+                                    onClick={() => setIsHolidayModalOpen(false)}
+                                    className="flex-1 h-12 rounded-2xl border-slate-100 font-black uppercase text-[9px] tracking-widest"
+                                >
+                                    Cancel
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </TabsContent>
             </Tabs>
         </div>

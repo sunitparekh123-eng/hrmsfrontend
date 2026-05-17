@@ -9,9 +9,11 @@ export const MODULES = [
   'EMPLOYEES',
   'ATTENDANCE',
   'PAYROLL',
+  'LOANS',
   'LEAVE',
   'LOCATIONS',
   'LETTERS',
+  'TOUR_EXPENSES',
   'REPORTS',
   'SETTINGS',
   'ROLE_MGMT'
@@ -54,33 +56,33 @@ const initialRoles: RoleDefinition[] = [
   {
     name: 'SUPER_ADMIN',
     permissions: {
-      DASHBOARD: FULL_CRUD, EMPLOYEES: FULL_CRUD, ATTENDANCE: FULL_CRUD, PAYROLL: FULL_CRUD, 
-      LEAVE: FULL_CRUD, LOCATIONS: FULL_CRUD, LETTERS: FULL_CRUD, REPORTS: FULL_CRUD, 
-      SETTINGS: FULL_CRUD, ROLE_MGMT: FULL_CRUD
+      DASHBOARD: FULL_CRUD, EMPLOYEES: FULL_CRUD, ATTENDANCE: FULL_CRUD, PAYROLL: FULL_CRUD, LOANS: FULL_CRUD,
+      LEAVE: FULL_CRUD, LOCATIONS: FULL_CRUD, LETTERS: FULL_CRUD, TOUR_EXPENSES: FULL_CRUD,
+      REPORTS: FULL_CRUD, SETTINGS: FULL_CRUD, ROLE_MGMT: FULL_CRUD
     }
   },
   {
     name: 'ADMIN',
     permissions: {
-      DASHBOARD: FULL_CRUD, EMPLOYEES: FULL_CRUD, ATTENDANCE: FULL_CRUD, PAYROLL: FULL_CRUD, 
-      LEAVE: FULL_CRUD, LOCATIONS: FULL_CRUD, LETTERS: FULL_CRUD, REPORTS: FULL_CRUD, 
-      SETTINGS: FULL_CRUD, ROLE_MGMT: NO_ACCESS
+      DASHBOARD: FULL_CRUD, EMPLOYEES: FULL_CRUD, ATTENDANCE: FULL_CRUD, PAYROLL: FULL_CRUD, LOANS: FULL_CRUD,
+      LEAVE: FULL_CRUD, LOCATIONS: FULL_CRUD, LETTERS: FULL_CRUD, TOUR_EXPENSES: FULL_CRUD,
+      REPORTS: FULL_CRUD, SETTINGS: FULL_CRUD, ROLE_MGMT: NO_ACCESS
     }
   },
   {
     name: 'MANAGER',
     permissions: {
-      DASHBOARD: READ_ONLY, EMPLOYEES: ['READ', 'UPDATE'], ATTENDANCE: FULL_CRUD, PAYROLL: NO_ACCESS, 
-      LEAVE: FULL_CRUD, LOCATIONS: READ_ONLY, LETTERS: NO_ACCESS, REPORTS: READ_ONLY, 
-      SETTINGS: READ_ONLY, ROLE_MGMT: NO_ACCESS
+      DASHBOARD: READ_ONLY, EMPLOYEES: ['READ', 'UPDATE'], ATTENDANCE: FULL_CRUD, PAYROLL: NO_ACCESS, LOANS: READ_ONLY,
+      LEAVE: FULL_CRUD, LOCATIONS: READ_ONLY, LETTERS: NO_ACCESS, TOUR_EXPENSES: FULL_CRUD,
+      REPORTS: READ_ONLY, SETTINGS: READ_ONLY, ROLE_MGMT: NO_ACCESS
     }
   },
   {
     name: 'EMPLOYEE',
     permissions: {
-      DASHBOARD: READ_ONLY, EMPLOYEES: NO_ACCESS, ATTENDANCE: READ_ONLY, PAYROLL: NO_ACCESS, 
-      LEAVE: READ_ONLY, LOCATIONS: NO_ACCESS, LETTERS: NO_ACCESS, REPORTS: NO_ACCESS, 
-      SETTINGS: READ_ONLY, ROLE_MGMT: NO_ACCESS
+      DASHBOARD: READ_ONLY, EMPLOYEES: NO_ACCESS, ATTENDANCE: READ_ONLY, PAYROLL: NO_ACCESS, LOANS: READ_ONLY,
+      LEAVE: READ_ONLY, LOCATIONS: NO_ACCESS, LETTERS: NO_ACCESS, TOUR_EXPENSES: READ_ONLY,
+      REPORTS: NO_ACCESS, SETTINGS: READ_ONLY, ROLE_MGMT: NO_ACCESS
     }
   }
 ];
@@ -97,7 +99,22 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
   const [availableRoles, setAvailableRoles] = useState<RoleDefinition[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('hrms_roles_crud');
-      return saved ? JSON.parse(saved) : initialRoles;
+      if (saved) {
+        try {
+          const parsed: RoleDefinition[] = JSON.parse(saved);
+          // If any role is missing a module key, reset to initialRoles
+          const isStale = parsed.some(r =>
+            MODULES.some(m => !(m in r.permissions))
+          );
+          if (isStale) {
+            localStorage.removeItem('hrms_roles_crud');
+            return initialRoles;
+          }
+          return parsed;
+        } catch {
+          return initialRoles;
+        }
+      }
     }
     return initialRoles;
   });
@@ -116,6 +133,7 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
     if (!currentRoleDef) return false;
 
     const modulePerms = currentRoleDef.permissions[module];
+    if (!modulePerms) return false;
     return modulePerms.includes(action);
   };
 

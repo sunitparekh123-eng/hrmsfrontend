@@ -17,7 +17,9 @@ import {
     FileType,
     UserCircle,
     Shield,
-    PieChart
+    PieChart,
+    Plane,
+    Landmark
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,18 +33,20 @@ import {
 } from "@/components/ui/select";
 
 const navigation: { name: string, href: string, icon: any, module: ModuleName }[] = [
-    { name: "Dashboard", href: "/", icon: LayoutDashboard, module: 'DASHBOARD' },
-    { name: "Employees", href: "/employees", icon: Users, module: 'EMPLOYEES' },
-    { name: "Onboarding", href: "/onboarding", icon: UserPlus, module: 'EMPLOYEES' }, // Shared with employees module for now
-    { name: "Attendance", href: "/attendance", icon: Clock, module: 'ATTENDANCE' },
-    { name: "Locations", href: "/locations", icon: MapPin, module: 'LOCATIONS' },
-    { name: "Leave", href: "/leave", icon: CalendarDays, module: 'LEAVE' },
-    { name: "Payroll", href: "/payroll", icon: Wallet, module: 'PAYROLL' },
-    { name: "Analytics", href: "/payroll/analytics", icon: PieChart, module: 'PAYROLL' },
-    { name: "Letters", href: "/letters", icon: FileType, module: 'LETTERS' },
-    { name: "Reports", href: "/reports", icon: BarChart3, module: 'REPORTS' },
-    { name: "Settings", href: "/settings", icon: Settings, module: 'SETTINGS' },
-    { name: "Role Mgmt", href: "/settings/roles", icon: Shield, module: 'ROLE_MGMT' },
+    { name: "Dashboard",     href: "/",               icon: LayoutDashboard, module: 'DASHBOARD'      },
+    { name: "Employees",     href: "/employees",       icon: Users,           module: 'EMPLOYEES'      },
+    { name: "Onboarding",    href: "/onboarding",      icon: UserPlus,        module: 'EMPLOYEES'      },
+    { name: "Attendance",    href: "/attendance",      icon: Clock,           module: 'ATTENDANCE'     },
+    { name: "Locations",     href: "/locations",       icon: MapPin,          module: 'LOCATIONS'      },
+    { name: "Leave",         href: "/leave",           icon: CalendarDays,    module: 'LEAVE'          },
+    { name: "Payroll",       href: "/payroll",         icon: Wallet,          module: 'PAYROLL'        },
+    { name: "Analytics",     href: "/payroll/analytics",icon: PieChart,       module: 'PAYROLL'        },
+    { name: "Loans",         href: "/loans",           icon: Landmark,        module: 'LOANS'          },
+    { name: "Letters",       href: "/letters",         icon: FileType,        module: 'LETTERS'        },
+    { name: "Tour Expenses", href: "/tour-expenses",   icon: Plane,           module: 'TOUR_EXPENSES'  },
+    { name: "Reports",       href: "/reports",         icon: BarChart3,       module: 'REPORTS'        },
+    { name: "Settings",      href: "/settings",        icon: Settings,        module: 'SETTINGS'       },
+    { name: "Role Mgmt",     href: "/settings/roles",  icon: Shield,          module: 'ROLE_MGMT'      },
 ];
 
 export function Sidebar() {

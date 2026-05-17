@@ -1,0 +1,816 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Plane, Plus, Search, Filter, CheckCircle2, Clock, XCircle,
+  Receipt, MapPin, Calendar, User, ArrowUpRight, Download,
+  ChevronDown, Wallet, FileText, TrendingUp, AlertCircle,
+  Building2, Upload, Paperclip, Eye, Trash2
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog, DialogContent, DialogTitle, DialogFooter, DialogDescription, DialogHeader
+} from "@/components/ui/dialog";
+import { useRole } from "@/context/RoleContext";
+
+import {
+  BRANCHES, EXPENSE_CATEGORIES, POLICY_RULES,
+  INITIAL_EXPENSES, Expense, Receipt as ReceiptType, ExpenseStatus
+} from "./data";
+
+const cn = (...c: string[]) => c.filter(Boolean).join(" ");
+
+const statusStyle: Record<string, string> = {
+  Approved: "bg-emerald-50 text-emerald-600",
+  Pending:  "bg-amber-50  text-amber-600",
+  Rejected: "bg-rose-50   text-rose-600",
+};
+const statusIcon: Record<string, any> = {
+  Approved: CheckCircle2,
+  Pending:  Clock,
+  Rejected: XCircle,
+};
+
+export default function TourExpensesPage() {
+  const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES);
+  const [search, setSearch]               = useState("");
+  const [filterStatus, setFilterStatus]   = useState("All");
+  const [showAdd, setShowAdd]             = useState(false);
+  const [selected, setSelected]           = useState<Expense | null>(null);
+  const [activeTab, setActiveTab]         = useState<"claims"|"policy">("claims");
+  const { hasPermission } = useRole();
+  const canEditPolicy = hasPermission('TOUR_EXPENSES', 'UPDATE');
+
+  // Policy State
+  const [policies, setPolicies] = useState(POLICY_RULES);
+  const [generalRules, setGeneralRules] = useState(
+    "All claims must be submitted within 7 days of tour completion. Receipts are mandatory for all expenses above ₹ 200. Claims submitted after 15 days will not be reimbursed without HOD approval. Advance settlement must be done within 3 days of return."
+  );
+  
+  // Policy Edit Dialog
+  const [showPolicyDialog, setShowPolicyDialog] = useState(false);
+  const [editingPolicyIndex, setEditingPolicyIndex] = useState<number | null>(null);
+  const [policyForm, setPolicyForm] = useState({ label: "", limit: "", note: "" });
+  
+  // General Rules Edit
+  const [isEditingGeneral, setIsEditingGeneral] = useState(false);
+  
+  // Reject Dialog
+  const [showReject, setShowReject] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+
+  // View Receipt Dialog
+  const [viewReceipt, setViewReceipt] = useState<ReceiptType | null>(null);
+
+  /* form state */
+  const [form, setForm] = useState<{
+    employee: string, dept: string, branch: string, purpose: string, from: string, to: string,
+    startDate: string, endDate: string, category: string, amount: string, notes: string, receipts: ReceiptType[]
+  }>({
+    employee: "", dept: "", branch: BRANCHES[0], purpose: "", from: "", to: "",
+    startDate: "", endDate: "", category: EXPENSE_CATEGORIES[0], amount: "", notes: "", receipts: []
+  });
+
+  const filtered = expenses.filter(e => {
+    const matchSearch = e.employee.toLowerCase().includes(search.toLowerCase()) ||
+                        e.id.toLowerCase().includes(search.toLowerCase()) ||
+                        e.purpose.toLowerCase().includes(search.toLowerCase()) ||
+                        e.branch.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatus === "All" || e.status === filterStatus;
+    return matchSearch && matchStatus;
+  });
+
+  const totalApproved  = expenses.filter(e => e.status === "Approved").reduce((s, e) => s + e.amount, 0);
+  const totalPending   = expenses.filter(e => e.status === "Pending").reduce((s, e) => s + e.amount, 0);
+  const totalClaims    = expenses.length;
+  const pendingCount   = expenses.filter(e => e.status === "Pending").length;
+
+  const handleApprove = () => {
+    if (!selected) return;
+    setExpenses(prev => prev.map(e => e.id === selected.id ? { ...e, status: "Approved", approvedBy: "Current User" } : e));
+    setSelected(prev => prev ? { ...prev, status: "Approved", approvedBy: "Current User" } : null);
+  };
+
+  const handleReject = () => {
+    if (!selected) return;
+    setExpenses(prev => prev.map(e => e.id === selected.id ? { ...e, status: "Rejected", rejectedReason: rejectReason } : e));
+    setSelected(prev => prev ? { ...prev, status: "Rejected", rejectedReason: rejectReason } : null);
+    setShowReject(false);
+    setRejectReason("");
+  };
+
+  const handleSubmitClaim = () => {
+    const newClaim: Expense = {
+      id: `TE00${expenses.length + 1}`,
+      employee: form.employee || "Unknown User",
+      dept: form.dept || "Unassigned",
+      branch: form.branch,
+      purpose: form.purpose,
+      from: form.from,
+      to: form.to,
+      startDate: form.startDate,
+      endDate: form.endDate,
+      amount: Number(form.amount) || 0,
+      status: "Pending",
+      category: form.category,
+      receipts: form.receipts,
+      submittedOn: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+      remarks: form.notes
+    };
+    setExpenses([newClaim, ...expenses]);
+    setShowAdd(false);
+    setForm({
+      employee: "", dept: "", branch: BRANCHES[0], purpose: "", from: "", to: "",
+      startDate: "", endDate: "", category: EXPENSE_CATEGORIES[0], amount: "", notes: "", receipts: []
+    });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const newReceipt: ReceiptType = {
+        id: `R${Date.now()}`,
+        name: file.name,
+        size: `${(file.size / 1024).toFixed(1)} KB`,
+        type: file.name.endsWith('.pdf') ? 'PDF' : 'IMG'
+      };
+      setForm(prev => ({ ...prev, receipts: [...prev.receipts, newReceipt] }));
+    }
+  };
+
+  const removeReceipt = (id: string) => {
+    setForm(prev => ({ ...prev, receipts: prev.receipts.filter(r => r.id !== id) }));
+  };
+
+  const handleSavePolicy = () => {
+    if (editingPolicyIndex !== null) {
+      setPolicies(prev => prev.map((p, i) => i === editingPolicyIndex ? policyForm : p));
+    } else {
+      setPolicies(prev => [...prev, policyForm]);
+    }
+    setShowPolicyDialog(false);
+  };
+
+  const handleDeletePolicy = (index: number) => {
+    setPolicies(prev => prev.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-8 pb-20">
+
+      {/* ── Header ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
+        <div>
+          <h1 className="text-xl font-black text-slate-900 flex items-center gap-3 italic uppercase tracking-tighter underline underline-offset-4 decoration-[#D9F99D] decoration-2">
+            <Plane className="h-6 w-6 text-rose-500" /> Tour Expenses
+          </h1>
+          <p className="text-[8px] font-black text-slate-400 mt-4 uppercase tracking-[0.4em]">
+            Manage employee travel & tour expense claims.
+          </p>
+        </div>
+        <Button
+          onClick={() => setShowAdd(true)}
+          className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[9px] tracking-widest px-8 h-11 rounded-2xl shadow-xl hover:translate-y-[-2px] transition-all flex items-center gap-2"
+        >
+          <Plus className="h-4 w-4 stroke-[3]" /> New Claim
+        </Button>
+      </div>
+
+      {/* ── Stats ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: "Total Claims",       value: totalClaims,                            suffix: "Claims",  icon: Receipt,    bg: "bg-white"       },
+          { label: "Approved Amount",    value: `₹ ${totalApproved.toLocaleString()}`,  suffix: "",        icon: CheckCircle2,bg: "bg-[#D9F99D]"  },
+          { label: "Pending Amount",     value: `₹ ${totalPending.toLocaleString()}`,   suffix: "",        icon: Clock,      bg: "bg-amber-50"    },
+          { label: "Pending Approvals",  value: pendingCount,                            suffix: "Claims",  icon: AlertCircle,bg: "bg-white"       },
+        ].map((s, i) => (
+          <Card key={i} className={`${s.bg} border-none rounded-2xl p-5 shadow-sm flex flex-col justify-between h-32 group hover:shadow-md transition-all`}>
+            <div className="h-8 w-8 bg-white/60 rounded-xl flex items-center justify-center">
+              <s.icon className="h-4 w-4 text-slate-400" />
+            </div>
+            <div>
+              <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{s.label}</p>
+              <h3 className="text-base font-black text-slate-900 uppercase italic tracking-tighter leading-tight">
+                {s.value} <span className="text-xs font-bold text-slate-400">{s.suffix}</span>
+              </h3>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* ── Tabs ── */}
+      <div className="flex gap-2">
+        {(["claims","policy"] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={cn(
+              "px-5 h-9 rounded-xl font-black text-[9px] uppercase tracking-widest transition-all",
+              activeTab === tab
+                ? "bg-slate-900 text-white shadow-md"
+                : "bg-white text-slate-400 hover:text-slate-900 hover:bg-slate-50 border border-slate-100"
+            )}
+          >
+            {tab === "claims" ? "Expense Claims" : "Policy & Limits"}
+          </button>
+        ))}
+      </div>
+
+      {/* ── CLAIMS TAB ── */}
+      {activeTab === "claims" && (
+        <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden p-1">
+          <CardHeader className="p-6 pb-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg font-black italic text-slate-900 underline underline-offset-4 decoration-[#D9F99D] decoration-2 uppercase tracking-tighter">
+                  All Claims
+                </CardTitle>
+                <CardDescription className="text-[8px] font-black text-slate-400 mt-3 uppercase tracking-[0.3em] italic">
+                  {filtered.length} records found
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Status filter */}
+                <div className="flex gap-1">
+                  {["All","Pending","Approved","Rejected"].map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setFilterStatus(s)}
+                      className={cn(
+                        "px-3 h-8 rounded-lg font-black text-[8px] uppercase tracking-widest transition-all",
+                        filterStatus === s
+                          ? "bg-slate-900 text-white"
+                          : "bg-slate-50 text-slate-400 hover:bg-slate-100"
+                      )}
+                    >{s}</button>
+                  ))}
+                </div>
+                {/* Search */}
+                <div className="relative group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3 w-3 text-slate-300" />
+                  <Input
+                    placeholder="Search claims…"
+                    className="h-9 w-52 pl-9 bg-slate-50 border-none rounded-xl font-bold text-[10px] focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="p-4">
+            <div className="space-y-3">
+              {filtered.map(exp => {
+                const Icon = statusIcon[exp.status];
+                return (
+                  <div
+                    key={exp.id}
+                    onClick={() => setSelected(exp)}
+                    className="flex items-center justify-between rounded-2xl border-2 border-slate-50 p-4 hover:border-[#D9F99D] hover:bg-slate-50/50 transition-all cursor-pointer group"
+                  >
+                    {/* Left */}
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 bg-slate-100 rounded-xl flex items-center justify-center group-hover:bg-[#D9F99D]/20 transition-colors shrink-0">
+                        <Plane className="h-4 w-4 text-slate-400" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-slate-900 uppercase italic tracking-tight">{exp.employee}</span>
+                          <span className="text-[7px] font-bold text-slate-300 uppercase tracking-widest">{exp.dept} · {exp.branch}</span>
+                        </div>
+                        <p className="text-[9px] font-bold text-slate-500 mt-0.5">{exp.purpose}</p>
+                        <div className="flex items-center gap-3 mt-1.5">
+                          <span className="text-[7px] font-black text-slate-300 uppercase flex items-center gap-1">
+                            <MapPin className="h-2.5 w-2.5" />{exp.from} → {exp.to}
+                          </span>
+                          <span className="text-[7px] font-black text-slate-300 uppercase flex items-center gap-1">
+                            <Calendar className="h-2.5 w-2.5" />{exp.startDate}
+                          </span>
+                          <span className="text-[7px] font-black text-slate-300 uppercase flex items-center gap-1">
+                            <Receipt className="h-2.5 w-2.5" />{exp.receipts.length} receipts
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Right */}
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="text-right">
+                        <p className="text-base font-black text-slate-900">₹ {exp.amount.toLocaleString()}</p>
+                        <p className="text-[7px] font-bold text-slate-300 uppercase">{exp.id}</p>
+                      </div>
+                      <Badge className={cn("border-none font-black text-[7px] uppercase tracking-widest px-2 py-1 rounded-lg flex items-center gap-1", statusStyle[exp.status])}>
+                        <Icon className="h-2.5 w-2.5" /> {exp.status}
+                      </Badge>
+                      <ArrowUpRight className="h-3.5 w-3.5 text-slate-200 group-hover:text-slate-500 transition-colors" />
+                    </div>
+                  </div>
+                );
+              })}
+              {filtered.length === 0 && (
+                <div className="text-center py-16 text-slate-300">
+                  <Plane className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                  <p className="text-sm font-black uppercase tracking-widest">No claims found</p>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── POLICY TAB ── */}
+      {activeTab === "policy" && (
+        <Card className="border-none shadow-sm rounded-2xl bg-white p-1">
+          <CardHeader className="p-6 pb-3 flex flex-row items-start justify-between">
+            <div>
+              <CardTitle className="text-lg font-black italic text-slate-900 underline underline-offset-4 decoration-[#D9F99D] decoration-2 uppercase tracking-tighter">
+                Tour Expense Policy
+              </CardTitle>
+              <CardDescription className="text-[8px] font-black text-slate-400 mt-3 uppercase tracking-[0.3em] italic">
+                Configured limits & reimbursement rules · Effective: Jan 01, 2026
+              </CardDescription>
+            </div>
+            {canEditPolicy && (
+              <Button 
+                onClick={() => { setEditingPolicyIndex(null); setPolicyForm({ label: "", limit: "", note: "" }); setShowPolicyDialog(true); }}
+                className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[9px] tracking-widest px-5 h-9 rounded-xl transition-all flex items-center gap-2"
+              >
+                <Plus className="h-3 w-3 stroke-[3]" /> Add Rule
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="p-4 space-y-3">
+            {policies.map((rule, i) => (
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between rounded-2xl border-2 border-slate-50 p-4 hover:border-[#D9F99D] hover:bg-slate-50/50 transition-all group">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 bg-slate-100 rounded-xl flex items-center justify-center">
+                    <Wallet className="h-4 w-4 text-slate-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-black text-slate-900 uppercase italic tracking-tight">{rule.label}</p>
+                    <p className="text-[8px] font-bold text-slate-400 mt-0.5">{rule.note}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 mt-3 sm:mt-0">
+                  <div className="text-right">
+                    <p className="text-sm font-black text-slate-900">{rule.limit}</p>
+                    <p className="text-[7px] font-bold text-slate-300 uppercase mt-0.5">Max Limit</p>
+                  </div>
+                  {canEditPolicy && (
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-400 hover:text-slate-900 rounded-lg" onClick={() => { setEditingPolicyIndex(i); setPolicyForm(rule); setShowPolicyDialog(true); }}>
+                        <AlertCircle className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg" onClick={() => handleDeletePolicy(i)}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            
+            {/* General note */}
+            <div className="rounded-2xl bg-amber-50 border border-amber-100 p-4 flex gap-3 mt-2 group relative">
+              <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <div className="flex justify-between items-center">
+                  <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">General Rules</p>
+                  {canEditPolicy && !isEditingGeneral && (
+                    <Button size="sm" variant="ghost" className="h-6 text-[8px] uppercase tracking-widest text-amber-600 hover:bg-amber-100 rounded-lg opacity-0 group-hover:opacity-100" onClick={() => setIsEditingGeneral(true)}>
+                      Edit Rules
+                    </Button>
+                  )}
+                </div>
+                {isEditingGeneral ? (
+                  <div className="mt-2 space-y-2">
+                    <textarea 
+                      className="w-full text-[9px] font-bold text-amber-800 bg-white border border-amber-200 rounded-lg p-2 outline-none focus:ring-1 focus:ring-amber-400 resize-none" 
+                      rows={4} 
+                      value={generalRules}
+                      onChange={e => setGeneralRules(e.target.value)}
+                    />
+                    <div className="flex justify-end gap-1">
+                       <Button size="sm" className="h-6 text-[8px] bg-amber-500 hover:bg-amber-600 text-white uppercase" onClick={() => setIsEditingGeneral(false)}>Save</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[9px] font-bold text-amber-600 mt-1 leading-relaxed whitespace-pre-wrap">
+                    {generalRules}
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Detail Dialog ── */}
+      <Dialog open={!!selected} onOpenChange={v => !v && setSelected(null)}>
+        <DialogContent
+          className="rounded-2xl p-0 overflow-hidden border-none shadow-2xl [&>button]:top-5 [&>button]:right-5 [&>button]:z-50 [&>button]:text-white [&>button]:bg-white/10 [&>button]:rounded-full [&>button]:p-1"
+          style={{ maxWidth: 640, width: '95vw' }}
+        >
+          <DialogTitle className="sr-only">Expense Claim Detail</DialogTitle>
+          {selected && (() => {
+            const Icon = statusIcon[selected.status];
+            return (
+              <div className="flex flex-col max-h-[90vh]">
+                {/* Header */}
+                <div className="bg-[#0f172a] p-7 shrink-0">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[7px] font-black uppercase tracking-widest" style={{ color: '#94a3b8' }}>{selected.id}</p>
+                      <h3 className="text-lg font-black uppercase italic tracking-tighter mt-1" style={{ color: '#D9F99D' }}>{selected.employee}</h3>
+                      <p className="text-[9px] font-bold mt-1" style={{ color: '#cbd5e1' }}>{selected.dept} · {selected.branch} · {selected.purpose}</p>
+                    </div>
+                    <Badge className={cn("border-none font-black text-[8px] uppercase tracking-widest px-3 py-1.5 rounded-xl flex items-center gap-1.5", statusStyle[selected.status])}>
+                      <Icon className="h-3 w-3" /> {selected.status}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 mt-6">
+                    {[
+                      { label: "Route",    value: `${selected.from} → ${selected.to}` },
+                      { label: "Duration", value: `${selected.startDate} – ${selected.endDate}` },
+                      { label: "Amount",   value: `₹ ${selected.amount.toLocaleString()}` },
+                    ].map(d => (
+                      <div key={d.label}>
+                        <p className="text-[7px] font-black uppercase tracking-widest" style={{ color: '#94a3b8' }}>{d.label}</p>
+                        <p className="text-[10px] font-black mt-1" style={{ color: '#f8fafc' }}>{d.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* Body */}
+                <div className="p-6 overflow-y-auto space-y-6">
+                  
+                  {/* Info Grid */}
+                  <div className="grid grid-cols-2 gap-4">
+                     <div className="space-y-1">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Category</span>
+                        <p className="text-xs font-bold text-slate-900">{selected.category}</p>
+                     </div>
+                     <div className="space-y-1">
+                        <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Submitted On</span>
+                        <p className="text-xs font-bold text-slate-900">{selected.submittedOn}</p>
+                     </div>
+                     {selected.approvedBy && (
+                       <div className="space-y-1">
+                          <span className="text-[8px] font-black text-emerald-500 uppercase tracking-widest">Approved By</span>
+                          <p className="text-xs font-bold text-slate-900">{selected.approvedBy}</p>
+                       </div>
+                     )}
+                     {selected.rejectedReason && (
+                       <div className="space-y-1 col-span-2">
+                          <span className="text-[8px] font-black text-rose-500 uppercase tracking-widest">Rejection Reason</span>
+                          <p className="text-xs font-bold text-rose-600 bg-rose-50 p-2 rounded-lg mt-1">{selected.rejectedReason}</p>
+                       </div>
+                     )}
+                     {selected.remarks && (
+                       <div className="space-y-1 col-span-2">
+                          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Remarks</span>
+                          <p className="text-xs text-slate-600 bg-slate-50 p-2 rounded-lg mt-1">{selected.remarks}</p>
+                       </div>
+                     )}
+                  </div>
+
+                  {/* Receipts Section */}
+                  <div>
+                    <h4 className="text-[9px] font-black text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-2 mb-3">
+                      Attached Receipts ({selected.receipts.length})
+                    </h4>
+                    {selected.receipts.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        {selected.receipts.map(r => (
+                          <div key={r.id} className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-slate-50 hover:border-slate-300 transition-colors">
+                             <div className="flex items-center gap-2 overflow-hidden">
+                                <div className="h-8 w-8 bg-white rounded-lg flex items-center justify-center shrink-0 shadow-sm">
+                                  <FileText className="h-4 w-4 text-slate-400" />
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-bold text-slate-900 truncate">{r.name}</p>
+                                  <p className="text-[7px] font-black text-slate-400 uppercase">{r.size} • {r.type}</p>
+                                </div>
+                             </div>
+                             <Button size="icon" variant="ghost" className="h-7 w-7 rounded-lg shrink-0" onClick={() => setViewReceipt(r)}>
+                               <Eye className="h-3.5 w-3.5 text-slate-500" />
+                             </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic">No receipts attached.</p>
+                    )}
+                  </div>
+                </div>
+                {/* Actions */}
+                <div className="px-6 pb-6 pt-4 border-t border-slate-100 flex gap-2 shrink-0">
+                  {selected.status === "Pending" && (
+                    <>
+                      <Button onClick={handleApprove} className="flex-1 bg-[#D9F99D] text-slate-900 hover:bg-[#c8ea8a] font-black uppercase text-[9px] tracking-widest h-11 rounded-xl">
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> Approve
+                      </Button>
+                      <Button onClick={() => setShowReject(true)} className="flex-1 bg-rose-50 text-rose-600 hover:bg-rose-100 font-black uppercase text-[9px] tracking-widest h-11 rounded-xl border-none">
+                        <XCircle className="h-3.5 w-3.5 mr-2" /> Reject
+                      </Button>
+                    </>
+                  )}
+                  <Button variant="outline" className="font-black uppercase text-[9px] tracking-widest h-11 rounded-xl border-slate-100 text-slate-500 hover:bg-slate-50">
+                    <Download className="h-3.5 w-3.5 mr-2" /> Export PDF
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Reject Reason Dialog ── */}
+      <Dialog open={showReject} onOpenChange={setShowReject}>
+        <DialogContent className="sm:max-w-[425px] rounded-2xl border-none shadow-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-900 italic uppercase">Reject Claim</DialogTitle>
+            <DialogDescription className="text-xs">
+              Please provide a reason for rejecting this expense claim.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <textarea 
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="Enter rejection reason..."
+              className="w-full min-h-[100px] p-3 rounded-xl bg-slate-50 border-none outline-none focus:ring-2 focus:ring-rose-500 text-sm resize-none"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowReject(false)} className="rounded-xl font-bold uppercase text-[10px] tracking-widest">Cancel</Button>
+            <Button onClick={handleReject} disabled={!rejectReason.trim()} className="rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold uppercase text-[10px] tracking-widest">Confirm Rejection</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── View Receipt Dialog (Mock) ── */}
+      <Dialog open={!!viewReceipt} onOpenChange={v => !v && setViewReceipt(null)}>
+        <DialogContent className="sm:max-w-[800px] rounded-2xl border-none shadow-2xl p-0 overflow-hidden bg-slate-100">
+          <DialogTitle className="sr-only">View Receipt</DialogTitle>
+          <div className="flex items-center justify-between bg-[#0f172a] p-4 text-white">
+            <div className="flex items-center gap-3">
+              <FileText className="h-5 w-5" style={{ color: '#94a3b8' }} />
+              <div>
+                <p className="text-sm font-bold" style={{ color: '#f8fafc' }}>{viewReceipt?.name}</p>
+                <p className="text-[10px] uppercase tracking-widest" style={{ color: '#cbd5e1' }}>{viewReceipt?.size} • {viewReceipt?.type}</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="icon" className="text-slate-400 hover:text-white rounded-full">
+              <Download className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="h-[60vh] flex items-center justify-center p-8">
+             <div className="bg-white w-full h-full rounded-xl shadow-sm border border-slate-200 flex flex-col items-center justify-center text-slate-300">
+                <FileText className="h-16 w-16 mb-4 opacity-50" />
+                <p className="text-sm font-bold text-slate-400">Receipt Preview</p>
+                <p className="text-xs mt-2">{viewReceipt?.name}</p>
+             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Add Claim Dialog ── */}
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent
+          className="rounded-2xl p-0 overflow-hidden border-none shadow-2xl [&>button]:top-5 [&>button]:right-5 [&>button]:z-50 [&>button]:text-white [&>button]:bg-white/10 [&>button]:rounded-full [&>button]:p-1"
+          style={{ maxWidth: 640, width: '95vw' }}
+        >
+          <DialogTitle className="sr-only">New Tour Expense Claim</DialogTitle>
+          <div className="flex flex-col max-h-[90vh]">
+            <div className="bg-[#0f172a] px-7 py-6 shrink-0">
+              <h3 className="text-lg font-black uppercase italic tracking-tighter" style={{ color: '#D9F99D' }}>New Expense Claim</h3>
+              <p className="text-[8px] font-bold uppercase tracking-widest mt-1" style={{ color: '#94a3b8' }}>Fill in the tour details below</p>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-5">
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Employee Name</label>
+                  <Input
+                    placeholder="e.g. Arjun Singh"
+                    value={form.employee}
+                    onChange={e => setForm(prev => ({ ...prev, employee: e.target.value }))}
+                    className="h-10 bg-slate-50 border-none rounded-xl font-bold text-xs focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Department</label>
+                  <Input
+                    placeholder="e.g. Sales"
+                    value={form.dept}
+                    onChange={e => setForm(prev => ({ ...prev, dept: e.target.value }))}
+                    className="h-10 bg-slate-50 border-none rounded-xl font-bold text-xs focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Branch</label>
+                  <select
+                    value={form.branch}
+                    onChange={e => setForm(prev => ({ ...prev, branch: e.target.value }))}
+                    className="w-full h-10 bg-slate-50 border-none rounded-xl font-bold text-xs px-3 outline-none focus:ring-1 focus:ring-[#D9F99D]"
+                  >
+                    {BRANCHES.map(b => <option key={b}>{b}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Tour Purpose</label>
+                  <Input
+                    placeholder="e.g. Client visit Mumbai"
+                    value={form.purpose}
+                    onChange={e => setForm(prev => ({ ...prev, purpose: e.target.value }))}
+                    className="h-10 bg-slate-50 border-none rounded-xl font-bold text-xs focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest">From City</label>
+                  <Input
+                    placeholder="Departure city"
+                    value={form.from}
+                    onChange={e => setForm(prev => ({ ...prev, from: e.target.value }))}
+                    className="h-10 bg-slate-50 border-none rounded-xl font-bold text-xs focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest">To City</label>
+                  <Input
+                    placeholder="Destination city"
+                    value={form.to}
+                    onChange={e => setForm(prev => ({ ...prev, to: e.target.value }))}
+                    className="h-10 bg-slate-50 border-none rounded-xl font-bold text-xs focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Start Date</label>
+                  <Input
+                    type="date"
+                    value={form.startDate}
+                    onChange={e => setForm(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="h-10 bg-slate-50 border-none rounded-xl font-bold text-xs focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest">End Date</label>
+                  <Input
+                    type="date"
+                    value={form.endDate}
+                    onChange={e => setForm(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="h-10 bg-slate-50 border-none rounded-xl font-bold text-xs focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Expense Category</label>
+                  <select
+                    value={form.category}
+                    onChange={e => setForm(prev => ({ ...prev, category: e.target.value }))}
+                    className="w-full h-10 bg-slate-50 border-none rounded-xl font-bold text-xs px-3 outline-none focus:ring-1 focus:ring-[#D9F99D]"
+                  >
+                    {EXPENSE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Total Amount (₹)</label>
+                  <Input
+                    type="number"
+                    placeholder="0.00"
+                    value={form.amount}
+                    onChange={e => setForm(prev => ({ ...prev, amount: e.target.value }))}
+                    className="h-10 bg-slate-50 border-none rounded-xl font-bold text-xs focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5 border-t border-slate-100 pt-5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[7px] font-black text-slate-900 uppercase tracking-widest">Attachments / Receipts</label>
+                  <label className="cursor-pointer">
+                    <input type="file" className="hidden" onChange={handleFileUpload} />
+                    <div className="flex items-center gap-1 text-[8px] font-bold text-[#84cc16] hover:text-[#65a30d]">
+                      <Paperclip className="h-3 w-3" /> Attach File
+                    </div>
+                  </label>
+                </div>
+                
+                {form.receipts.length > 0 ? (
+                  <div className="space-y-2 mt-2">
+                    {form.receipts.map(r => (
+                      <div key={r.id} className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-3 w-3 text-slate-400" />
+                          <span className="text-[10px] font-bold text-slate-700">{r.name}</span>
+                          <span className="text-[8px] text-slate-400">({r.size})</span>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-md" onClick={() => removeReceipt(r.id)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 flex flex-col items-center justify-center text-center mt-2">
+                    <Upload className="h-5 w-5 text-slate-300 mb-1" />
+                    <p className="text-[9px] font-bold text-slate-500">Upload bills, tickets or receipts</p>
+                    <p className="text-[7px] text-slate-400 uppercase mt-0.5">PDF, JPG, PNG up to 5MB</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Remarks / Notes</label>
+                <textarea
+                  rows={2}
+                  placeholder="Any additional notes…"
+                  value={form.notes}
+                  onChange={e => setForm(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full bg-slate-50 rounded-xl font-bold text-xs px-3 py-2.5 outline-none focus:ring-1 focus:ring-[#D9F99D] resize-none border-none"
+                />
+              </div>
+
+            </div>
+            <div className="px-6 pb-6 pt-4 border-t border-slate-50 flex gap-2 shrink-0">
+              <Button
+                onClick={handleSubmitClaim}
+                className="flex-1 bg-[#D9F99D] text-slate-900 hover:bg-[#c8ea8a] font-black uppercase text-[9px] tracking-widest h-11 rounded-xl"
+              >
+                <Plus className="h-3.5 w-3.5 mr-2" /> Submit Claim
+              </Button>
+              <Button
+                onClick={() => setShowAdd(false)}
+                variant="outline"
+                className="font-black uppercase text-[9px] tracking-widest h-11 rounded-xl border-slate-100 text-slate-400"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Policy Form Dialog ── */}
+      <Dialog open={showPolicyDialog} onOpenChange={setShowPolicyDialog}>
+        <DialogContent className="sm:max-w-[425px] rounded-2xl border-none shadow-2xl p-6 bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-900 italic uppercase underline underline-offset-4 decoration-[#D9F99D]">
+              {editingPolicyIndex !== null ? "Edit Policy Rule" : "Add Policy Rule"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="space-y-1.5">
+               <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Rule Category / Label</label>
+               <Input 
+                 placeholder="e.g. Hotel Stay" 
+                 value={policyForm.label} 
+                 onChange={e => setPolicyForm(prev => ({...prev, label: e.target.value}))}
+                 className="h-10 bg-slate-50 border-none rounded-xl font-bold text-xs focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+               />
+            </div>
+            <div className="space-y-1.5">
+               <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Max Limit Details</label>
+               <Input 
+                 placeholder="e.g. ₹ 3,500 / night" 
+                 value={policyForm.limit} 
+                 onChange={e => setPolicyForm(prev => ({...prev, limit: e.target.value}))}
+                 className="h-10 bg-slate-50 border-none rounded-xl font-bold text-xs focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+               />
+            </div>
+            <div className="space-y-1.5">
+               <label className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Additional Notes</label>
+               <Input 
+                 placeholder="e.g. Metro cities: ₹ 5,000 / night" 
+                 value={policyForm.note} 
+                 onChange={e => setPolicyForm(prev => ({...prev, note: e.target.value}))}
+                 className="h-10 bg-slate-50 border-none rounded-xl font-bold text-xs focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
+               />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowPolicyDialog(false)} className="rounded-xl font-bold uppercase text-[10px] tracking-widest">Cancel</Button>
+            <Button onClick={handleSavePolicy} className="rounded-xl bg-[#D9F99D] hover:bg-[#c8ea8a] text-slate-900 font-bold uppercase text-[10px] tracking-widest">
+              Save Rule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

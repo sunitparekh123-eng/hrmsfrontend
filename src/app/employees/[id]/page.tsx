@@ -39,8 +39,8 @@ export default function EmployeeProfilePage() {
         const allEmployees = JSON.parse(localStorage.getItem('hrms_employees') || '[]');
         // If not found in dynamic storage, check static defaults (mock data)
         const mockDefaults = [
-            { id: "EMP001", name: "Walt Whitman", email: "walt@hrms.io", phone: "+91 98765 43210", dob: "1990-05-31", doj: "2022-01-15", aadhaar: "1234 5678 9012", pan: "ABCDE1234F", location: "Indore", role: "ADMIN", jobTitle: "HR Manager", dept: "Human Resources", bankName: "HDFC Bank", accountNo: "501002345678", ifsc: "HDFC0001234", pfNo: "PF/IND/001", uan: "100123456789", status: "Active", color: "blue" },
-            { id: "EMP002", name: "Emily Dickinson", email: "emily@hrms.io", phone: "+91 98765 43211", dob: "1992-12-10", doj: "2023-03-01", location: "Bhopal", jobTitle: "Senior Developer", dept: "Engineering", status: "On Leave", color: "amber" },
+            { id: "EMP001", name: "Walt Whitman", email: "walt@hrms.io", phone: "+91 98765 43210", dob: "1990-05-31", doj: "2022-01-15", aadhaar: "1234 5678 9012", pan: "ABCDE1234F", location: "Indore", role: "ADMIN", jobTitle: "HR Manager", dept: "Human Resources", bankName: "HDFC Bank", accountNo: "501002345678", ifsc: "HDFC0001234", pfNo: "PF/IND/001", uan: "100123456789", status: "Active", color: "blue", fixedGross: 35000, pfApplicable: true, pfCeiling: true, esicApplicable: false, paymentMode: "Bank Transfer" },
+            { id: "EMP002", name: "Emily Dickinson", email: "emily@hrms.io", phone: "+91 98765 43211", dob: "1992-12-10", doj: "2023-03-01", location: "Bhopal", jobTitle: "Senior Developer", dept: "Engineering", status: "On Leave", color: "amber", fixedGross: 25000, pfApplicable: true, pfCeiling: false, esicApplicable: true, paymentMode: "Bank Transfer" },
         ];
         
         const found = allEmployees.find((e: any) => e.id === params.id) || mockDefaults.find(e => e.id === params.id);
@@ -210,45 +210,51 @@ export default function EmployeeProfilePage() {
                         <Card className="border-none shadow-sm rounded-[2.5rem] bg-white p-10">
                             <CardHeader className="px-0 pt-0 pb-8 border-b border-slate-50 mb-8 flex flex-row items-center justify-between">
                                 <CardTitle className="text-sm font-black uppercase tracking-widest italic flex items-center gap-3">
-                                    <Banknote className="h-4 w-4 text-emerald-500" /> Compensation & Payouts
+                                    <Banknote className="h-4 w-4 text-emerald-500" /> Salary & Compliance Setup
                                 </CardTitle>
-                                <Badge className="bg-emerald-50 text-emerald-600 font-black text-[8px] uppercase tracking-widest h-6 px-3 border-none">Active Ledger</Badge>
+                                <Badge className="bg-emerald-50 text-emerald-600 font-black text-[8px] uppercase tracking-widest h-6 px-3 border-none">Synced with Payroll</Badge>
                             </CardHeader>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                                 <div className="bg-slate-50 rounded-2xl p-6 border border-white">
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Base Salary (Gross)</p>
-                                    <p className="text-xl font-black italic text-slate-900">₹{employee.baseSalary || "1,20,000"} <span className="text-[9px] font-bold text-slate-400 not-italic">/mo</span></p>
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Fixed CTC (Gross)</p>
+                                    <p className="text-xl font-black italic text-slate-900">₹{employee.fixedGross?.toLocaleString() || "35,000"} <span className="text-[9px] font-bold text-slate-400 not-italic">/mo</span></p>
                                 </div>
                                 <div className="bg-slate-50 rounded-2xl p-6 border border-white">
-                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Cost Per Day</p>
-                                    <p className="text-xl font-black italic text-slate-900">₹{employee.costPerDay || "3,870"} <span className="text-[9px] font-bold text-slate-400 not-italic">/day</span></p>
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Payment Mode</p>
+                                    <p className="text-xl font-black italic text-slate-900">{employee.paymentMode || "Bank Transfer"}</p>
                                 </div>
                                 <div className="bg-indigo-50 rounded-2xl p-6 border border-white">
-                                    <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-1">YTD Disbursed</p>
-                                    <p className="text-xl font-black italic text-indigo-900">₹{employee.ytd || "4,50,000"}</p>
+                                    <p className="text-[8px] font-black text-indigo-400 uppercase tracking-widest mb-1">Compliance Status</p>
+                                    <div className="flex gap-2 mt-2">
+                                        <Badge className={cn("border-none font-black text-[7px] uppercase tracking-widest px-2", employee.pfApplicable ? "bg-slate-900 text-white" : "bg-slate-200 text-slate-500")}>
+                                            PF {employee.pfApplicable ? (employee.pfCeiling ? "(Ceiling)" : "(Full)") : "(No)"}
+                                        </Badge>
+                                        <Badge className={cn("border-none font-black text-[7px] uppercase tracking-widest px-2", employee.esicApplicable ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500")}>
+                                            ESIC {employee.esicApplicable ? "(Yes)" : "(No)"}
+                                        </Badge>
+                                    </div>
                                 </div>
                             </div>
                             
                             <div>
-                                <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-4">Recent Disbursement History</p>
+                                <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest mb-4">Salary Breakdown Engine</p>
                                 <div className="space-y-2">
                                     {[
-                                        { month: "April 2026", date: "02 May 2026", gross: 120000, net: 115000, status: "Paid" },
-                                        { month: "March 2026", date: "01 Apr 2026", gross: 120000, net: 116200, status: "Paid" },
-                                        { month: "February 2026", date: "28 Feb 2026", gross: 120000, net: 114500, status: "Paid" },
+                                        { component: "Basic Salary", amount: (employee.fixedGross || 35000) * 0.40, type: "Earning" },
+                                        { component: "HRA (House Rent)", amount: ((employee.fixedGross || 35000) * 0.40) * 0.40, type: "Earning" },
+                                        { component: "Other Allowances", amount: (employee.fixedGross || 35000) - ((employee.fixedGross || 35000) * 0.40) - (((employee.fixedGross || 35000) * 0.40) * 0.40), type: "Earning" },
                                     ].map((p, i) => (
                                         <div key={i} className="flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 rounded-2xl transition-colors">
                                             <div className="flex flex-col">
-                                                <span className="text-xs font-black italic uppercase text-slate-900 tracking-tighter">{p.month}</span>
-                                                <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{p.date}</span>
+                                                <span className="text-xs font-black italic uppercase text-slate-900 tracking-tighter">{p.component}</span>
                                             </div>
                                             <div className="flex items-center gap-6">
                                                 <div className="text-right">
-                                                    <span className="block text-[9px] font-black uppercase text-slate-400">Net Payout</span>
-                                                    <span className="text-sm font-black italic text-slate-900">₹{p.net.toLocaleString()}</span>
+                                                    <span className="block text-[9px] font-black uppercase text-slate-400">Fixed Amount</span>
+                                                    <span className="text-sm font-black italic text-slate-900">₹{p.amount.toLocaleString()}</span>
                                                 </div>
                                                 <Badge className="bg-emerald-50 text-emerald-600 font-black text-[7px] uppercase tracking-widest h-5 px-2 border-none">
-                                                    {p.status}
+                                                    {p.type}
                                                 </Badge>
                                             </div>
                                         </div>

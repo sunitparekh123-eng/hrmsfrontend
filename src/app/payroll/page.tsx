@@ -78,10 +78,16 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
+import { 
+    GlobalRulesSheet, 
+    DisbursementDialog, 
+    EmployeeHistoryDialog, 
+    PayrollPolicyDialog 
+} from "@/components/payroll/PayrollModals";
 
 export default function PayrollPage() {
     const [isConfigOpen, setIsConfigOpen] = useState(false);
-    const [isLoanOpen, setIsLoanOpen] = useState(false);
+
     const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
     const [isPastOpen, setIsPastOpen] = useState(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -91,9 +97,6 @@ export default function PayrollPage() {
     const [selectedRows, setSelectedRows] = useState<number[]>([]);
     
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
-
     const [disbursementStep, setDisbursementStep] = useState(1);
     const [txDetails, setTxDetails] = useState({
         mode: "NEFT/RTGS",
@@ -121,109 +124,124 @@ export default function PayrollPage() {
     const [ledger, setLedger] = useState([
         { 
             id: 1, 
-            name: "Arjun Singh", 
-            branch: "Mumbai HQ",
-            base: 120000, 
-            hra: 15000, 
-            allowance: 7000,
-            conveyance: 5000,
-            medical: 2000,
-            otHours: 10,
-            lateMarks: 1,
-            bonus: 2000,
-            pfType: "Full PF", 
-            loanBalance: 0, 
-            loanDeduction: 0, 
+            employeeCode: "1",
+            name: "SWAPNIL JAISWAL", 
+            location: "Indore",
+            company: "BP Marketing",
+            designation: "Accounts Head",
+            fixedGross: 35000, 
+            pfApplicable: false,
+            pfCeiling: false,
+            esicApplicable: false,
             absentDays: 0,
+            bonus: 0,
+            previousArrears: 0,
+            incentive: 0,
+            loanDeduction: 0, 
             status: "Verified",
-            node: "Node V.1"
         },
         { 
             id: 2, 
-            name: "Meera Das", 
-            branch: "Delhi Regional",
-            base: 85000, 
-            hra: 5000, 
-            allowance: 2000,
-            conveyance: 3000,
-            medical: 1000,
-            otHours: 5,
-            lateMarks: 4,
-            bonus: 0,
-            pfType: "No PF", 
-            loanBalance: 50000, 
-            loanDeduction: 5000, 
-            absentDays: 2,
-            status: "Verified",
-            node: "Node V.2"
-        },
-        { 
-            id: 3, 
-            name: "Rahul Sharma", 
-            branch: "MP Branch",
-            base: 95000, 
-            hra: 10000, 
-            allowance: 5000,
-            conveyance: 5000,
-            medical: 2000,
-            otHours: 0,
-            lateMarks: 0,
-            bonus: 0,
-            pfType: "Partial PF", 
-            loanBalance: 0, 
-            loanDeduction: 0, 
+            employeeCode: "2",
+            name: "SIMRAN KATARIYA", 
+            location: "Indore",
+            company: "BP Marketing",
+            designation: "Sr . Commercial exe",
+            fixedGross: 25000, 
+            pfApplicable: true,
+            pfCeiling: true,
+            esicApplicable: false,
             absentDays: 0,
+            bonus: 0,
+            previousArrears: 0,
+            incentive: 0,
+            loanDeduction: 1415, 
             status: "Draft",
-            node: "Node V.1"
         },
         { 
-            id: 4, 
-            name: "Anita Kapoor", 
-            branch: "MP Branch",
-            base: 115000, 
-            hra: 12000, 
-            allowance: 6000,
-            conveyance: 4000,
-            medical: 2000,
-            otHours: 2,
-            lateMarks: 0,
-            bonus: 5000,
-            pfType: "Full PF", 
-            loanBalance: 0, 
+            id: 8, 
+            employeeCode: "8",
+            name: "SANDEEP CHOUHAN", 
+            location: "Indore",
+            company: "BP Marketing",
+            designation: "Supervisor",
+            fixedGross: 13100, 
+            pfApplicable: true,
+            pfCeiling: true,
+            esicApplicable: false,
+            absentDays: 3,
+            bonus: 0,
+            previousArrears: 0,
+            incentive: 0,
             loanDeduction: 0, 
+            status: "Verified",
+        },
+        { 
+            id: 39, 
+            employeeCode: "39",
+            name: "SHRAVAN MUNIYA", 
+            location: "Ratlam",
+            company: "Apaar Logistics",
+            designation: "SR.SUPERVISOR",
+            fixedGross: 16000, 
+            pfApplicable: true,
+            pfCeiling: true,
+            esicApplicable: true,
             absentDays: 0,
+            bonus: 0,
+            previousArrears: 0,
+            incentive: 0,
+            loanDeduction: 0, 
             status: "Paid",
-            node: "Node V.3"
         }
     ]);
 
     const calculateProductionNet = (row: any) => {
-        const totalDays = 31;
-        const gross = row.base + row.hra + row.allowance + row.conveyance + row.medical;
-        
-        const lop = (gross / totalDays) * row.absentDays;
-        
-        let pt = 0;
-        if (gross > 25000) pt = 208;
-        else if (gross > 15000) pt = 125;
-        
-        const pfBasis = row.pfType === "Full PF" ? row.base : Math.min(row.base, 15000);
+        const daysInMonth = 28; // Extracted from client sheet
+        const payableDays = daysInMonth - (row.absentDays || 0);
+
+        // Fixed Structure
+        const fixedBasic = Math.round(row.fixedGross * 0.40);
+        const fixedHra = Math.round(fixedBasic * 0.40);
+        const fixedOther = row.fixedGross - fixedBasic - fixedHra;
+
+        // Prorated Structure
+        const basic = Math.round((fixedBasic / daysInMonth) * payableDays);
+        const hra = Math.round((fixedHra / daysInMonth) * payableDays);
+        const other = Math.round((fixedOther / daysInMonth) * payableDays);
+
+        const proratedGross = basic + hra + other;
+        const totalEarnings = proratedGross + (row.previousArrears || 0) + (row.bonus || 0) + (row.incentive || 0);
+
+        // Deductions
         let pf = 0;
-        if (row.pfType !== "No PF") {
-            const rate = row.pfType === "Partial PF" ? 0.06 : 0.12;
-            pf = pfBasis * rate;
+        if (row.pfApplicable) {
+            const pfBasic = row.pfCeiling ? Math.min(basic, 15000) : basic;
+            pf = Math.round(pfBasic * 0.12);
         }
 
-        const esi = gross <= 21000 ? gross * 0.0075 : 0;
+        let esi = 0;
+        if (row.esicApplicable) {
+            esi = Math.ceil(totalEarnings * 0.0075);
+        }
+
+        let pt = 0;
+        if (proratedGross > 33333) pt = 208;
+        else if (proratedGross > 25000) pt = 167;
+        else if (proratedGross > 15000) pt = 125;
+
+        const grossDeductions = pf + esi + pt + (row.loanDeduction || 0);
+        const net = totalEarnings - grossDeductions;
+
+        // Employer Contribution
+        const pfEmployer = pf; // simplified, matches employee side in their sheet
+        const esiEmployer = row.esicApplicable ? Math.ceil(totalEarnings * 0.0325) : 0;
+        const totalMonthlyCTC = totalEarnings + pfEmployer + esiEmployer;
 
         return {
-            gross,
-            lop: Math.round(lop),
-            bonus: row.bonus || 0,
-            pf: Math.round(pf),
-            pt,
-            esi: Math.round(esi),
-            net: Math.round(gross + (row.bonus || 0) - lop - pf - pt - esi - row.loanDeduction)
+            basic, hra, other, proratedGross, totalEarnings,
+            pf, esi, pt, grossDeductions, net,
+            pfEmployer, esiEmployer, totalMonthlyCTC
         };
     };
 
@@ -234,11 +252,18 @@ export default function PayrollPage() {
     };
 
     const handleExportCSV = () => {
-        const headers = ["Employee", "Node", "Gross", "Bonus", "LOP", "PF", "PT", "ESI", "Loan", "Net Payable"];
+        const headers = ["Employee Code", "Employee Name", "Location", "Company", "Gross Salary", "Designation", "PF Applicable", "PF Ceiling", "ESIC Applicable", "Days In Month", "Payable Days", "Absent Days", "Basic", "HRA", "Other Allowance", "Previous Month Arrears", "Bonus", "Incentive", "Gross Earnings", "Provident Fund", "ESIC", "Professional Tax", "Advance/Loan/TDS", "Other Deduction", "Gross Deductions", "Net Salary", "PF Employer", "ESIC Employer", "Total Monthly CTC"];
         const rows = ledger.map(emp => {
             const res = calculateProductionNet(emp);
+            const daysInMonth = 28;
+            const payable = daysInMonth - emp.absentDays;
             return [
-                emp.name, emp.node, res.gross, res.bonus, res.lop, res.pf, res.pt, res.esi, emp.loanDeduction, res.net
+                emp.employeeCode, emp.name, emp.location, emp.company, emp.fixedGross, emp.designation, 
+                emp.pfApplicable ? "Yes" : "No", emp.pfCeiling ? "Yes" : "No", emp.esicApplicable ? "Yes" : "No", 
+                daysInMonth, payable, emp.absentDays, 
+                res.basic, res.hra, res.other, emp.previousArrears, emp.bonus, emp.incentive, res.totalEarnings,
+                res.pf, res.esi, res.pt, emp.loanDeduction, 0, res.grossDeductions, res.net,
+                res.pfEmployer, res.esiEmployer, res.totalMonthlyCTC
             ];
         });
         
@@ -252,8 +277,8 @@ export default function PayrollPage() {
     };
 
     const filteredLedger = ledger.filter(emp => {
-        const matchesBranch = selectedBranch === "All Branches" || emp.branch === selectedBranch;
-        const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || emp.id.toString().includes(searchQuery);
+        const matchesBranch = selectedBranch === "All Branches" || emp.location === selectedBranch;
+        const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || emp.employeeCode.toString().includes(searchQuery);
         const matchesStatus = statusFilter === "ALL" || emp.status === statusFilter;
         return matchesBranch && matchesSearch && matchesStatus;
     });
@@ -288,12 +313,6 @@ export default function PayrollPage() {
     const generatePayslip = (row: any) => {
         const doc = new jsPDF();
         const pNet = calculateProductionNet(row);
-        const gross = pNet.gross;
-        const pf = pNet.pf;
-        const net = pNet.net;
-        const pt = pNet.pt;
-        const lop = pNet.lop;
-        const esi = pNet.esi;
 
         // Branding
         doc.setFontSize(22);
@@ -301,33 +320,33 @@ export default function PayrollPage() {
         doc.text("NODE HRMS", 20, 25);
         doc.setFontSize(10);
         doc.setTextColor(148, 163, 184); // slate-400
-        doc.text("P AY R O L L   S L I P   •   M A Y   2 0 2 6", 20, 32);
+        doc.text(`P AY R O L L   S L I P   •   ${globalRules.cycle}`, 20, 32);
 
         // Employee Info
         doc.setFontSize(12);
         doc.setTextColor(15, 23, 42);
-        doc.text(`Employee: ${row.name}`, 20, 50);
-        doc.text(`Designation: ${row.node}`, 20, 57);
-        doc.text(`Branch: Indore Hub`, 20, 64);
+        doc.text(`Employee: ${row.name} (${row.employeeCode})`, 20, 50);
+        doc.text(`Designation: ${row.designation}`, 20, 57);
+        doc.text(`Location: ${row.location} | Company: ${row.company}`, 20, 64);
 
         // Table
         autoTable(doc, {
             startY: 75,
             head: [['Description', 'Earnings', 'Deductions']],
             body: [
-                ['Basic Salary', `Rs. ${row.base.toLocaleString()}`, '-'],
-                ['HRA', `Rs. ${row.hra.toLocaleString()}`, '-'],
-                ['Allowances (Spl/Conv/Med)', `Rs. ${(row.allowance + row.conveyance + row.medical).toLocaleString()}`, '-'],
-                ['Loss of Pay (LOP)', '-', `Rs. ${lop.toLocaleString()}`],
-                ['Provident Fund (PF)', '-', `Rs. ${pf.toLocaleString()}`],
-                ['Professional Tax (PT)', '-', `Rs. ${pt.toLocaleString()}`],
-                ['ESI (Employees State Insurance)', '-', `Rs. ${esi.toLocaleString()}`],
+                ['Basic Salary', `Rs. ${pNet.basic.toLocaleString()}`, '-'],
+                ['HRA', `Rs. ${pNet.hra.toLocaleString()}`, '-'],
+                ['Other Allowances', `Rs. ${pNet.other.toLocaleString()}`, '-'],
+                ['Bonus / Arrears', `Rs. ${(row.bonus + row.previousArrears).toLocaleString()}`, '-'],
+                ['Provident Fund (PF)', '-', `Rs. ${pNet.pf.toLocaleString()}`],
+                ['Professional Tax (PT)', '-', `Rs. ${pNet.pt.toLocaleString()}`],
+                ['ESI (Employees State Insurance)', '-', `Rs. ${pNet.esi.toLocaleString()}`],
                 ['Loan/Advance Deduction', '-', `Rs. ${row.loanDeduction.toLocaleString()}`],
             ],
             theme: 'striped',
             headStyles: { fillColor: [15, 23, 42], fontSize: 10 },
             styles: { fontSize: 9 },
-            foot: [['TOTAL', `Rs. ${gross.toLocaleString()}`, `Rs. ${(pf + pt + esi + lop + row.loanDeduction).toLocaleString()}`]],
+            foot: [['TOTAL', `Rs. ${pNet.totalEarnings.toLocaleString()}`, `Rs. ${pNet.grossDeductions.toLocaleString()}`]],
             footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold' }
         });
 
@@ -335,37 +354,14 @@ export default function PayrollPage() {
         
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.text(`NET PAYABLE: Rs. ${net.toLocaleString()}`, 20, finalY + 20);
+        doc.text(`NET PAYABLE: Rs. ${pNet.net.toLocaleString()}`, 20, finalY + 20);
         
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(148, 163, 184);
         doc.text("Note: This is a computer-generated document and does not require a signature.", 20, finalY + 40);
 
-        doc.save(`${row.name.replace(" ", "_")}_Payslip_May2026.pdf`);
-    };
-
-    const handleFileUpload = () => {
-        setIsUploading(true);
-        setUploadProgress(0);
-        
-        const interval = setInterval(() => {
-            setUploadProgress(prev => {
-                if (prev >= 100) {
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        setIsUploading(false);
-                        setLedger(prevLedger => prevLedger.map(emp => ({
-                            ...emp,
-                            status: "Verified",
-                            absentDays: Math.floor(Math.random() * 3)
-                        })));
-                    }, 500);
-                    return 100;
-                }
-                return prev + 5;
-            });
-        }, 100);
+        doc.save(`${row.name.replace(" ", "_")}_Payslip_${globalRules.cycle.replace(" ", "")}.pdf`);
     };
 
     return (
@@ -473,46 +469,8 @@ export default function PayrollPage() {
                 </div>
             )}
 
-            {/* Quick Actions & Upload */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <Card className="border-none bg-white rounded-2xl p-6 shadow-sm flex flex-col justify-between group hover:shadow-md transition-all">
-                    <div className="absolute top-0 right-0 p-4 opacity-5">
-                        <FileSpreadsheet className="h-16 w-16" />
-                    </div>
-                    <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-1">Upload Salary List</h3>
-                    <p className="text-xl font-black italic uppercase text-slate-900 tracking-tighter mb-4 leading-none">Excel Processing</p>
-                    
-                    {isUploading ? (
-                        <div className="space-y-3 animate-in fade-in duration-300">
-                            <div className="flex items-center justify-between">
-                                <span className="text-[8px] font-black uppercase text-indigo-500 tracking-widest animate-pulse">Parsing Records...</span>
-                                <span className="text-[9px] font-black text-slate-900">{uploadProgress}%</span>
-                            </div>
-                            <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                                <div 
-                                    className="h-full bg-indigo-500 transition-all duration-300 ease-out" 
-                                    style={{ width: `${uploadProgress}%` }}
-                                />
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="relative">
-                            <input 
-                                type="file" 
-                                id="salary-upload" 
-                                className="hidden" 
-                                onChange={handleFileUpload}
-                                accept=".csv,.xlsx,.xls"
-                            />
-                            <label 
-                                htmlFor="salary-upload"
-                                className="inline-flex items-center gap-2 bg-white border border-slate-100 shadow-sm text-slate-900 px-5 h-10 rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all cursor-pointer"
-                            >
-                                <Plus className="h-3.5 w-3.5 text-indigo-500" /> Select Excel File
-                            </label>
-                        </div>
-                    )}
-                </Card>
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 lg:grid-cols-1 gap-5">
 
                 <Card className="border-none bg-slate-900 rounded-2xl p-6 shadow-sm flex flex-col justify-between text-white overflow-hidden relative">
                     <div className="absolute top-0 right-0 p-6 opacity-10">
@@ -529,21 +487,6 @@ export default function PayrollPage() {
                     <Button onClick={() => setIsConfigOpen(true)} variant="link" className="text-[#D9F99D] font-black uppercase text-[8px] tracking-widest p-0 self-start mt-4 relative z-10 hover:no-underline">Global Rules</Button>
                 </Card>
 
-                <Card className="border-none bg-[#D1FAE5] rounded-2xl p-6 shadow-sm flex flex-col justify-between">
-                    <div className="space-y-3">
-                        <div className="h-9 w-9 rounded-xl bg-white/50 flex items-center justify-center">
-                            <Banknote className="h-5 w-5 text-emerald-600" />
-                        </div>
-                        <h3 className="text-sm font-black uppercase italic tracking-tighter text-slate-900">Employee Loans</h3>
-                        <p className="text-[9px] font-bold text-emerald-700/60 uppercase tracking-widest leading-loose">Manage advances and loans.</p>
-                    </div>
-                    <div className="flex items-center justify-between mt-4">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 italic">08 Active Loans</span>
-                        <Button onClick={() => setIsLoanOpen(true)} size="icon" className="h-8 w-8 rounded-lg bg-slate-900 text-white shadow-xl hover:scale-110 transition-transform">
-                            <Plus className="h-3.5 w-3.5" />
-                        </Button>
-                    </div>
-                </Card>
             </div>
 
             {/* Active Ledger */}
@@ -572,9 +515,9 @@ export default function PayrollPage() {
                                     />
                                 </TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Employee Details</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Monthly Gross</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bonus</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">PF Rule</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prorated Gross</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Deductions</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Statutory</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Net Payable</TableHead>
                                 <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status</TableHead>
                                 <TableHead className="text-right pr-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Actions</TableHead>
@@ -596,27 +539,30 @@ export default function PayrollPage() {
                                         <div className="flex flex-col">
                                             <p className="text-sm font-black text-slate-900 italic tracking-tight uppercase group-hover:translate-x-1 transition-transform">{row.name}</p>
                                             <div className="flex items-center gap-1.5 mt-0.5">
-                                                <Badge className="bg-slate-50 text-slate-400 border-none font-black text-[7px] h-4 px-1.5 rounded uppercase tracking-widest">{row.node}</Badge>
-                                                <Badge className="bg-indigo-50 text-indigo-500 border-none font-black text-[7px] h-4 px-1.5 rounded uppercase tracking-widest">{row.branch}</Badge>
-                                                <span className="text-[7px] font-bold text-rose-500 uppercase tracking-widest">{row.absentDays > 0 ? `${row.absentDays} Absent` : 'Full Attendance'}</span>
+                                                <Badge className="bg-slate-50 text-slate-400 border-none font-black text-[7px] h-4 px-1.5 rounded uppercase tracking-widest">{row.designation}</Badge>
+                                                <Badge className="bg-indigo-50 text-indigo-500 border-none font-black text-[7px] h-4 px-1.5 rounded uppercase tracking-widest">{row.location}</Badge>
+                                                <span className="text-[7px] font-bold text-rose-500 uppercase tracking-widest">{row.absentDays > 0 ? `${row.absentDays} LWP` : 'Full Present'}</span>
                                             </div>
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-xs font-black text-slate-900">
                                         <div className="flex flex-col">
-                                            <span>₹{pNet.gross.toLocaleString()}</span>
-                                            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Base CTC</span>
+                                            <span>₹{pNet.totalEarnings.toLocaleString()}</span>
+                                            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Base CTC: ₹{row.fixedGross.toLocaleString()}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-[10px] font-bold text-slate-600">
-                                        <div className="flex gap-2">
-                                            <span className="text-blue-500">+{pNet.bonus} (B)</span>
+                                        <div className="flex flex-col gap-0.5">
+                                            <span className="text-rose-500 font-black">₹{pNet.grossDeductions.toLocaleString()}</span>
+                                            <span className="text-[7px] uppercase tracking-widest text-slate-400">Total Deducted</span>
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge className="bg-slate-50 text-slate-900 border-none font-black text-[7px] h-6 px-3 rounded-lg uppercase tracking-widest">
-                                            {row.pfType}
-                                        </Badge>
+                                        <div className="flex items-center gap-1">
+                                            {row.pfApplicable && <Badge className="bg-slate-900 text-white border-none font-black text-[7px] h-5 px-2 rounded-md uppercase tracking-widest">PF</Badge>}
+                                            {row.esicApplicable && <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[7px] h-5 px-2 rounded-md uppercase tracking-widest">ESI</Badge>}
+                                            {!row.pfApplicable && !row.esicApplicable && <Badge className="bg-slate-50 text-slate-400 border-none font-black text-[7px] h-5 px-2 rounded-md uppercase tracking-widest">NONE</Badge>}
+                                        </div>
                                     </TableCell>
                                     <TableCell className="text-xs font-black text-emerald-600 italic">₹{pNet.net.toLocaleString()}</TableCell>
                                     <TableCell>
@@ -700,482 +646,42 @@ export default function PayrollPage() {
                 </div>
             </div>
 
-            {/* Salary Configuration Sheet */}
-            <Sheet open={isConfigOpen} onOpenChange={(open) => {
-                setIsConfigOpen(open);
-                if (!open) setSelectedEmployee(null);
-            }}>
-                <SheetContent className="sm:max-w-[540px] border-none shadow-2xl p-0 overflow-y-auto">
-                    <div className="h-2 bg-[#D9F99D]" />
-                    <div className="p-8 space-y-10">
-                        <SheetHeader className="text-left space-y-2">
-                            <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center">
-                                <TrendingUp className="h-6 w-6 text-indigo-500" />
-                            </div>
-                            <SheetTitle className="text-2xl font-black italic uppercase text-slate-900 tracking-tighter">
-                                {selectedEmployee ? `Configure: ${selectedEmployee.name}` : "Global Salary Rules"}
-                            </SheetTitle>
-                            <SheetDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-loose">
-                                Define CTC components, PF rules, and Tax overrides for this employee.
-                            </SheetDescription>
-                        </SheetHeader>
+            {/* Exported Modals */}
+            <GlobalRulesSheet
+                isOpen={isConfigOpen}
+                onOpenChange={setIsConfigOpen}
+                selectedEmployee={selectedEmployee}
+                setSelectedEmployee={setSelectedEmployee}
+                globalRules={globalRules}
+                setGlobalRules={setGlobalRules}
+                handleSalaryUpdate={handleSalaryUpdate}
+                calculateProductionNet={calculateProductionNet}
+            />
 
-                        {selectedEmployee ? (
-                            <div className="grid gap-8 animate-in slide-in-from-right-4 duration-300">
-                                <div className="space-y-6">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                                        <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Earnings Breakdown</span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Basic Salary</Label>
-                                            <Input 
-                                                type="number" 
-                                                value={selectedEmployee.base}
-                                                onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'base', parseInt(e.target.value) || 0)}
-                                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px] focus:bg-white transition-all" 
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">HRA Allowance</Label>
-                                            <Input 
-                                                type="number" 
-                                                value={selectedEmployee.hra}
-                                                onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'hra', parseInt(e.target.value) || 0)}
-                                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px] focus:bg-white transition-all" 
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Special</Label>
-                                            <Input 
-                                                type="number" 
-                                                value={selectedEmployee.allowance}
-                                                onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'allowance', parseInt(e.target.value) || 0)}
-                                                className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px]" 
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Conv.</Label>
-                                            <Input 
-                                                type="number" 
-                                                value={selectedEmployee.conveyance}
-                                                onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'conveyance', parseInt(e.target.value) || 0)}
-                                                className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px]" 
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Medical</Label>
-                                            <Input 
-                                                type="number" 
-                                                value={selectedEmployee.medical}
-                                                onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'medical', parseInt(e.target.value) || 0)}
-                                                className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px]" 
-                                            />
-                                        </div>
-                                    </div>
+            <DisbursementDialog
+                isOpen={isSendDialogOpen}
+                onOpenChange={setIsSendDialogOpen}
+                disbursementStep={disbursementStep}
+                setDisbursementStep={setDisbursementStep}
+                txDetails={txDetails}
+                setTxDetails={setTxDetails}
+                ledger={ledger}
+                calculateProductionNet={calculateProductionNet}
+                handleDisburseAll={handleDisburseAll}
+            />
 
-                                    <div className="flex items-center gap-2 mb-2 pt-4 border-t border-slate-100">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                                        <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Attendance & Compliance</span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Absent Days</Label>
-                                            <Input 
-                                                type="number" 
-                                                value={selectedEmployee.absentDays}
-                                                onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'absentDays', parseInt(e.target.value) || 0)}
-                                                className="h-12 rounded-xl bg-orange-50/50 border-orange-100 font-bold text-[11px]" 
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">PF Logic</Label>
-                                            <Select 
-                                                value={selectedEmployee.pfType}
-                                                onValueChange={(val) => handleSalaryUpdate(selectedEmployee.id, 'pfType', val)}
-                                            >
-                                                <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent className="border-none shadow-xl rounded-xl">
-                                                    <SelectItem value="Full PF" className="text-[10px] font-bold uppercase">Full (Override Ceiling)</SelectItem>
-                                                    <SelectItem value="Partial PF" className="text-[10px] font-bold uppercase">Standard (15k Cap)</SelectItem>
-                                                    <SelectItem value="No PF" className="text-[10px] font-bold uppercase">No PF</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <div className="p-6 rounded-[2rem] bg-slate-950 text-white shadow-2xl relative overflow-hidden border border-white/5">
-                                    <div className="absolute top-0 right-0 p-6 opacity-5">
-                                        <TrendingUp className="h-20 w-20" />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-6 relative z-10">
-                                        <div>
-                                            <p className="text-[8px] font-black uppercase text-slate-500 tracking-[0.3em] mb-1">LOP Deduction</p>
-                                            <h4 className="text-lg font-black text-rose-400 tracking-tighter italic">₹{calculateProductionNet(selectedEmployee).lop.toLocaleString()}</h4>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-[8px] font-black uppercase text-[#D9F99D] tracking-[0.3em] mb-1">Net In-Hand</p>
-                                            <h4 className="text-3xl font-black italic tracking-tighter text-white">₹{calculateProductionNet(selectedEmployee).net.toLocaleString()}</h4>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="grid gap-8 animate-in slide-in-from-right-4 duration-300">
-                                <div className="space-y-6">
-                                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex gap-3">
-                                        <Info className="h-5 w-5 text-amber-500 shrink-0" />
-                                        <p className="text-[9px] font-bold text-amber-800 uppercase tracking-widest leading-relaxed">
-                                            Warning: These rules will apply to all employees who don't have custom overrides.
-                                        </p>
-                                    </div>
-                                    
-                                    <div className="space-y-4">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Employer PF %</Label>
-                                                <Input 
-                                                    type="number" 
-                                                    value={globalRules.pfEmployer}
-                                                    onChange={(e) => setGlobalRules({...globalRules, pfEmployer: parseInt(e.target.value) || 0})}
-                                                    className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Employee PF %</Label>
-                                                <Input 
-                                                    type="number" 
-                                                    value={globalRules.pfEmployee}
-                                                    onChange={(e) => setGlobalRules({...globalRules, pfEmployee: parseInt(e.target.value) || 0})}
-                                                    className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">HRA % of Basic</Label>
-                                                <Input 
-                                                    type="number" 
-                                                    value={globalRules.hraPercent}
-                                                    onChange={(e) => setGlobalRules({...globalRules, hraPercent: parseInt(e.target.value) || 0})}
-                                                    className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Monthly Cycle</Label>
-                                                <Input 
-                                                    value={globalRules.cycle}
-                                                    onChange={(e) => setGlobalRules({...globalRules, cycle: e.target.value})}
-                                                    className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                        
-                        <SheetFooter className="pt-6">
-                            <Button onClick={() => setIsConfigOpen(false)} className="w-full h-12 rounded-2xl bg-slate-900 text-white font-black uppercase text-[9px] tracking-widest shadow-xl">Save Configuration</Button>
-                        </SheetFooter>
-                    </div>
-                </SheetContent>
-            </Sheet>
+            <EmployeeHistoryDialog
+                isOpen={isHistoryOpen}
+                onOpenChange={setIsHistoryOpen}
+                selectedEmployee={selectedEmployee}
+            />
 
-            {/* Loan Management Dialog */}
-            <Dialog open={isLoanOpen} onOpenChange={setIsLoanOpen}>
-                <DialogContent className="sm:max-w-[425px] border-none shadow-2xl rounded-3xl p-8">
-                    <DialogHeader className="space-y-3">
-                        <div className="h-12 w-12 rounded-2xl bg-[#D1FAE5] flex items-center justify-center mb-2">
-                            <Banknote className="h-6 w-6 text-emerald-600" />
-                        </div>
-                        <DialogTitle className="text-xl font-black italic uppercase text-slate-900 tracking-tighter">Advance & Loan Request</DialogTitle>
-                        <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-loose">
-                            Issue a new advance payment or loan to an employee.
-                        </DialogDescription>
-                    </DialogHeader>
-                    
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Select Employee</Label>
-                            <Select>
-                                <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]">
-                                    <SelectValue placeholder="Choose Employee" />
-                                </SelectTrigger>
-                                <SelectContent className="border-none shadow-xl rounded-xl">
-                                    {ledger.map(emp => (
-                                        <SelectItem key={emp.id} value={emp.id.toString()} className="text-[10px] font-bold uppercase">{emp.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Loan Amount</Label>
-                            <Input 
-                                type="number" 
-                                placeholder="₹ 0.00"
-                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Monthly Deduction (EMI)</Label>
-                            <Input 
-                                type="number" 
-                                placeholder="₹ 0.00"
-                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
-                            />
-                        </div>
-                    </div>
-
-                    <DialogFooter className="gap-3 sm:justify-start pt-4">
-                        <Button onClick={() => setIsLoanOpen(false)} className="flex-1 h-12 rounded-2xl bg-slate-900 text-white font-black uppercase text-[9px] tracking-widest shadow-xl">Disburse Loan</Button>
-                        <Button variant="outline" onClick={() => setIsLoanOpen(false)} className="flex-1 h-12 rounded-2xl border-slate-100 font-black uppercase text-[9px] tracking-widest">Cancel</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Send Salaries Confirmation Dialog Overhaul */}
-            <Dialog open={isSendDialogOpen} onOpenChange={(open) => {
-                setIsSendDialogOpen(open);
-                if(!open) setDisbursementStep(1);
-            }}>
-                <DialogContent className="sm:max-w-[480px] border-none shadow-2xl rounded-[2.5rem] p-10 overflow-hidden">
-                    {disbursementStep === 1 ? (
-                        <div className="animate-in fade-in slide-in-from-right-5 duration-300">
-                            <div className="h-16 w-16 rounded-[1.2rem] bg-[#D9F99D] flex items-center justify-center mx-auto mb-6 shadow-xl group">
-                                <Wallet className="h-8 w-8 text-slate-900 group-hover:scale-110 transition-transform" />
-                            </div>
-                            <DialogHeader className="text-center space-y-3">
-                                <DialogTitle className="text-3xl font-black italic uppercase text-slate-900 tracking-tighter mx-auto">Review Cycle</DialogTitle>
-                                <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] leading-loose mx-auto">
-                                    Confirming payout for <span className="text-slate-900 font-black italic">{ledger.length} Staff Members</span>
-                                </DialogDescription>
-                            </DialogHeader>
-                            
-                            <div className="my-8 p-8 rounded-[2rem] bg-slate-950 text-white relative overflow-hidden border border-white/5 shadow-2xl">
-                                <div className="absolute top-0 right-0 p-6 opacity-5">
-                                    <ArrowUpRight className="h-16 w-16" />
-                                </div>
-                                <div className="grid grid-cols-2 gap-6 text-left relative z-10">
-                                    <div>
-                                        <p className="text-[8px] font-black uppercase text-slate-500 tracking-[0.2em] mb-2">Total Gross</p>
-                                        <p className="text-xl font-black italic text-white tracking-tighter">₹{ledger.reduce((acc, curr) => acc + calculateProductionNet(curr).gross, 0).toLocaleString()}</p>
-                                    </div>
-                                    <div className="text-right border-l border-white/10 pl-6">
-                                        <p className="text-[8px] font-black uppercase text-rose-400 tracking-[0.2em] mb-2">Deductions</p>
-                                        <p className="text-xl font-black italic text-rose-500 tracking-tighter">
-                                            -₹{ledger.reduce((acc, curr) => {
-                                                const res = calculateProductionNet(curr);
-                                                return acc + res.pf + res.pt + res.esi + res.lop;
-                                            }, 0).toLocaleString()}
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="mt-8 pt-8 border-t border-white/10">
-                                    <p className="text-[9px] font-black uppercase text-[#D9F99D] tracking-[0.3em] mb-2">Net Funds to Disburse</p>
-                                    <h4 className="text-4xl font-black italic tracking-tighter">₹{ledger.reduce((acc, curr) => acc + calculateProductionNet(curr).net, 0).toLocaleString()}</h4>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-4">
-                                <Button 
-                                    onClick={() => setDisbursementStep(2)} 
-                                    className="w-full h-14 rounded-2xl bg-slate-900 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:translate-y-[-2px] transition-all flex items-center justify-center gap-3"
-                                >
-                                    Verify & Finalize <ChevronRight className="h-5 w-5" />
-                                </Button>
-                                <button onClick={() => setIsSendDialogOpen(false)} className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-600 transition-colors py-2">
-                                    No, Cancel Transaction
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="animate-in fade-in slide-in-from-right-5 duration-300">
-                            <div className="h-16 w-16 rounded-[1.2rem] bg-indigo-50 flex items-center justify-center mx-auto mb-6">
-                                <ShieldCheck className="h-8 w-8 text-indigo-600" />
-                            </div>
-                            <DialogHeader className="text-center space-y-3 mb-8">
-                                <DialogTitle className="text-2xl font-black italic uppercase text-slate-900 tracking-tighter mx-auto">Audit Details</DialogTitle>
-                                <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] leading-loose mx-auto text-center">
-                                    Mandatory fields for production ledger audit
-                                </DialogDescription>
-                            </DialogHeader>
-
-                            <div className="space-y-5 mb-10">
-                                <div className="space-y-1.5">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Payment Mode</Label>
-                                    <Select value={txDetails.mode} onValueChange={(v) => setTxDetails({...txDetails, mode: v})}>
-                                        <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none font-bold text-[11px] px-6">
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent className="border-none rounded-xl shadow-2xl">
-                                            <SelectItem value="NEFT/RTGS" className="font-bold text-xs uppercase italic">NEFT / RTGS (Manual)</SelectItem>
-                                            <SelectItem value="Bulk UPI" className="font-bold text-xs uppercase italic">Bulk UPI Transfer</SelectItem>
-                                            <SelectItem value="Manual/Cash" className="font-bold text-xs uppercase italic">Manual Disbursement</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Reference / Batch ID</Label>
-                                    <Input 
-                                        value={txDetails.reference}
-                                        onChange={(e) => setTxDetails({...txDetails, reference: e.target.value})}
-                                        className="h-12 rounded-xl bg-slate-50 border-none font-bold text-[11px] px-6" 
-                                    />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Authorized By</Label>
-                                    <Input 
-                                        value={txDetails.authorizedBy}
-                                        onChange={(e) => setTxDetails({...txDetails, authorizedBy: e.target.value})}
-                                        className="h-12 rounded-xl bg-slate-50 border-none font-bold text-[11px] px-6" 
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col gap-4">
-                                <Button 
-                                    onClick={handleDisburseAll} 
-                                    className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
-                                >
-                                    <CreditCard className="h-5 w-5" /> Release Funds Now
-                                </Button>
-                                <button onClick={() => setDisbursementStep(1)} className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-400 hover:text-slate-600 transition-colors py-2">
-                                    Back to Summary
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
-
-            {/* Employee Specific Salary History Dialog */}
-            <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-                <DialogContent className="sm:max-w-[600px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden">
-                    <div className="bg-slate-900 p-8 text-white">
-                        <div className="flex items-center gap-4 mb-6">
-                            <div className="h-14 w-14 rounded-2xl bg-white/10 flex items-center justify-center border border-white/10">
-                                <UserCircle className="h-8 w-8 text-[#D9F99D]" />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-black italic uppercase tracking-tighter">{selectedEmployee?.name}</h3>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedEmployee?.node} • Salary History</p>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-3 gap-4">
-                            <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                                <p className="text-[7px] font-black text-slate-500 uppercase mb-1">Total Paid YTD</p>
-                                <p className="text-sm font-black italic text-[#D9F99D]">₹4,50,000</p>
-                            </div>
-                            <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                                <p className="text-[7px] font-black text-slate-500 uppercase mb-1">Avg. Net Pay</p>
-                                <p className="text-sm font-black italic text-white">₹1,12,500</p>
-                            </div>
-                            <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                                <p className="text-[7px] font-black text-slate-500 uppercase mb-1">Leaves Taken</p>
-                                <p className="text-sm font-black italic text-rose-400">12 Days</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="p-8 space-y-4">
-                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Recent Payouts</p>
-                        <div className="space-y-3">
-                            {[
-                                { month: "APR 2026", amount: "₹1,27,400", status: "Paid" },
-                                { month: "MAR 2026", amount: "₹1,15,200", status: "Paid" },
-                                { month: "FEB 2026", amount: "₹1,27,400", status: "Paid" },
-                            ].map((h, i) => (
-                                <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50/30">
-                                    <div className="flex items-center gap-3">
-                                        <CalendarCheck className="h-4 w-4 text-slate-400" />
-                                        <span className="text-[10px] font-black text-slate-900 uppercase">{h.month}</span>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <span className="text-xs font-black italic text-slate-900">{h.amount}</span>
-                                        <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[7px] h-5 px-2 rounded-lg">{h.status}</Badge>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
-
-            {/* Global Payroll Policy Dialog */}
-            <Dialog open={isPolicyOpen} onOpenChange={setIsPolicyOpen}>
-                <DialogContent className="sm:max-w-[450px] border-none shadow-2xl rounded-3xl p-8">
-                    <DialogHeader className="text-left space-y-2">
-                        <div className="h-12 w-12 rounded-2xl bg-rose-50 flex items-center justify-center">
-                            <Clock className="h-6 w-6 text-rose-500" />
-                        </div>
-                        <DialogTitle className="text-2xl font-black italic uppercase text-slate-900 tracking-tighter">Payroll Policies</DialogTitle>
-                        <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-loose">
-                            Define statutory deduction rules for the entire company.
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <Tabs defaultValue="operations" className="w-full mt-6">
-                        <TabsList className="grid w-full grid-cols-2 h-12 bg-slate-50 rounded-2xl p-1 mb-8">
-                            <TabsTrigger value="operations" className="rounded-xl font-black uppercase text-[8px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-sm">Operations</TabsTrigger>
-                            <TabsTrigger value="statutory" className="rounded-xl font-black uppercase text-[8px] tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-sm">Statutory</TabsTrigger>
-                        </TabsList>
-
-                        <TabsContent value="operations" className="space-y-6 mt-0">
-                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                                <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-3">No Operational Rules</p>
-                                <p className="text-[10px] font-bold text-slate-500 italic">Operational penalties have been disabled globally.</p>
-                            </div>
-                        </TabsContent>
-
-                        <TabsContent value="statutory" className="space-y-6 mt-0">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Employer PF %</Label>
-                                    <Input 
-                                        type="number" 
-                                        value={globalRules.pfEmployer}
-                                        onChange={(e) => setGlobalRules({...globalRules, pfEmployer: parseInt(e.target.value) || 0})}
-                                        className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Employee PF %</Label>
-                                    <Input 
-                                        type="number" 
-                                        value={globalRules.pfEmployee}
-                                        onChange={(e) => setGlobalRules({...globalRules, pfEmployee: parseInt(e.target.value) || 0})}
-                                        className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
-                                    />
-                                </div>
-                            </div>
-                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                                <p className="text-[8px] font-black uppercase text-slate-400 tracking-widest mb-3">Professional Tax Slabs (MP)</p>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between text-[10px] font-bold">
-                                        <span className="text-slate-500 italic">Up to ₹1.5L / Yr</span>
-                                        <span className="text-slate-900">₹0</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-[10px] font-bold">
-                                        <span className="text-slate-500 italic">Above ₹1.5L / Yr</span>
-                                        <span className="text-slate-900">₹2,500 / Yr</span>
-                                    </div>
-                                </div>
-                                <Button variant="link" className="h-auto p-0 mt-3 text-[8px] font-black uppercase tracking-widest text-indigo-500">Update Slabs</Button>
-                            </div>
-                        </TabsContent>
-                    </Tabs>
-
-                    <DialogFooter className="mt-8">
-                        <Button onClick={() => setIsPolicyOpen(false)} className="w-full h-12 rounded-2xl bg-slate-900 text-white font-black uppercase text-[9px] tracking-widest shadow-xl">Save All Changes</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+            <PayrollPolicyDialog
+                isOpen={isPolicyOpen}
+                onOpenChange={setIsPolicyOpen}
+                globalRules={globalRules}
+                setGlobalRules={setGlobalRules}
+            />
 
             {/* Floating Batch Action Bar */}
             {selectedRows.length > 0 && (

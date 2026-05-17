@@ -28,7 +28,7 @@ import { useRole } from "@/context/RoleContext";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-const steps = ["Personal Info", "Job Details", "Bank & PF", "Documentation", "Review"];
+const steps = ["Personal Info", "Job Details", "Salary & Bank", "Documentation", "Review"];
 
 export default function OnboardingPage() {
     const { availableRoles } = useRole();
@@ -51,7 +51,13 @@ export default function OnboardingPage() {
         ifsc: "",
         pfNo: "",
         uan: "",
-        licDetails: ""
+        licDetails: "",
+        fixedGross: "",
+        company: "BP Marketing",
+        paymentMode: "Bank Transfer",
+        pfApplicable: "Yes",
+        pfCeiling: "Yes",
+        esicApplicable: "Yes"
     });
 
     const updateField = (id: string, value: string) => {
@@ -151,11 +157,24 @@ export default function OnboardingPage() {
                         {currentStep === 1 && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 animate-in fade-in slide-in-from-right-4">
                                 <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Company Entity</Label>
+                                    <select className="w-full h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none" value={formData.company} onChange={e => updateField('company', e.target.value)}>
+                                        <option value="BP Marketing">BP Marketing</option>
+                                        <option value="Apaar Logistics">Apaar Logistics</option>
+                                        <option value="AE">AE</option>
+                                        <option value="PJ">PJ</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-3">
                                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Office Location</Label>
                                     <select className="w-full h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none" value={formData.location} onChange={e => updateField('location', e.target.value)}>
-                                        <option value="Indore">Indore Hub</option>
-                                        <option value="Bhopal">Bhopal Terminal</option>
-                                        <option value="Satna">Satna Unit</option>
+                                        <option value="Indore">Indore</option>
+                                        <option value="Bhopal">Bhopal</option>
+                                        <option value="Satna">Satna</option>
+                                        <option value="Ratlam">Ratlam</option>
+                                        <option value="Aagra">Aagra</option>
+                                        <option value="Bilaspur">Bilaspur</option>
+                                        <option value="Reengus">Reengus</option>
                                     </select>
                                 </div>
                                 <div className="space-y-3">
@@ -184,6 +203,10 @@ export default function OnboardingPage() {
                         {currentStep === 2 && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 animate-in fade-in slide-in-from-right-4">
                                 <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Monthly Fixed Gross (CTC)</Label>
+                                    <Input type="number" placeholder="e.g. 85000" className="h-12 bg-emerald-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-emerald-900" value={formData.fixedGross} onChange={e => updateField('fixedGross', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
                                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bank Name</Label>
                                     <Input placeholder="e.g. HDFC Bank" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest" value={formData.bankName} onChange={e => updateField('bankName', e.target.value)} />
                                 </div>
@@ -194,6 +217,34 @@ export default function OnboardingPage() {
                                 <div className="space-y-3">
                                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">IFSC Code</Label>
                                     <Input placeholder="HDFC0001234" className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest" value={formData.ifsc} onChange={e => updateField('ifsc', e.target.value)} />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Payment Mode</Label>
+                                    <select className="w-full h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none" value={formData.paymentMode} onChange={e => updateField('paymentMode', e.target.value)}>
+                                        <option value="Bank Transfer">Bank Transfer</option>
+                                        <option value="Cash">Cash</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">PF Applicable</Label>
+                                    <select className="w-full h-12 bg-indigo-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none text-indigo-900" value={formData.pfApplicable} onChange={e => updateField('pfApplicable', e.target.value)}>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No">No</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">PF Ceiling Limit</Label>
+                                    <select className="w-full h-12 bg-indigo-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none text-indigo-900" value={formData.pfCeiling} onChange={e => updateField('pfCeiling', e.target.value)}>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No">No</option>
+                                    </select>
+                                </div>
+                                <div className="space-y-3">
+                                    <Label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">ESIC Applicable</Label>
+                                    <select className="w-full h-12 bg-blue-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none text-blue-900" value={formData.esicApplicable} onChange={e => updateField('esicApplicable', e.target.value)}>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No">No</option>
+                                    </select>
                                 </div>
                                 <div className="space-y-3">
                                     <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PF Number</Label>
@@ -257,8 +308,18 @@ export default function OnboardingPage() {
                                     <div className="p-8 bg-slate-50 rounded-[2rem] space-y-6">
                                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white pb-3">Job Details</p>
                                         <div className="space-y-4">
+                                            <div><p className="text-[7px] font-black text-slate-400 uppercase">Company Entity</p><p className="text-sm font-black italic uppercase text-slate-900">{formData.company}</p></div>
                                             <div><p className="text-[7px] font-black text-slate-400 uppercase">Office Location</p><p className="text-sm font-black italic uppercase text-slate-900">{formData.location}</p></div>
                                             <div><p className="text-[7px] font-black text-slate-400 uppercase">Role</p><p className="text-sm font-black text-slate-900 uppercase tracking-widest">{formData.role}</p></div>
+                                        </div>
+                                    </div>
+                                    <div className="p-8 bg-slate-50 rounded-[2rem] space-y-6 md:col-span-2">
+                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white pb-3">Compensation & Compliance</p>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div><p className="text-[7px] font-black text-emerald-500 uppercase">Monthly Fixed CTC</p><p className="text-sm font-black text-emerald-600 uppercase tracking-widest">₹{formData.fixedGross ? Number(formData.fixedGross).toLocaleString('en-IN') : "0"}</p></div>
+                                            <div><p className="text-[7px] font-black text-slate-400 uppercase">Payment Mode</p><p className="text-sm font-black text-slate-900 uppercase tracking-widest">{formData.paymentMode}</p></div>
+                                            <div><p className="text-[7px] font-black text-indigo-400 uppercase">PF Applicable</p><p className="text-sm font-black text-indigo-600 uppercase tracking-widest">{formData.pfApplicable}</p></div>
+                                            <div><p className="text-[7px] font-black text-blue-400 uppercase">ESIC Applicable</p><p className="text-sm font-black text-blue-600 uppercase tracking-widest">{formData.esicApplicable}</p></div>
                                         </div>
                                     </div>
                                 </div>
