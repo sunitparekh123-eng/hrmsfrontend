@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useRole, ModuleName } from "@/context/RoleContext";
+import { useAuth } from "@/context/AuthContext";
 import {
     Select,
     SelectContent,
@@ -52,6 +53,7 @@ const navigation: { name: string, href: string, icon: any, module: ModuleName }[
 export function Sidebar() {
     const pathname = usePathname();
     const { role, setRole, hasPermission } = useRole();
+    const { logout } = useAuth();
 
     const filteredNavigation = navigation.filter(item => hasPermission(item.module, 'READ'));
 
@@ -110,7 +112,7 @@ export function Sidebar() {
             </nav>
 
             <div className="p-4 mt-auto">
-                <Button variant="ghost" className="w-full justify-start gap-3 h-10 rounded-xl text-slate-400 font-black uppercase text-[9px] tracking-widest px-4 hover:bg-rose-50 hover:text-rose-600 transition-all border border-transparent hover:border-rose-100">
+                <Button onClick={() => logout()} variant="ghost" className="w-full justify-start gap-3 h-10 rounded-xl text-slate-400 font-black uppercase text-[9px] tracking-widest px-4 hover:bg-rose-50 hover:text-rose-600 transition-all border border-transparent hover:border-rose-100">
                     <LogOut className="h-4 w-4 stroke-[2.5]" />
                     Log Out
                 </Button>
@@ -122,6 +124,7 @@ export function Sidebar() {
 export function MobileSidebar({ isOpen, onOpenChange }: { isOpen: boolean, onOpenChange: (open: boolean) => void }) {
     const pathname = usePathname();
     const { role, hasPermission } = useRole();
+    const { logout } = useAuth();
 
     const filteredNavigation = navigation.filter(item => hasPermission(item.module, 'READ'));
 
@@ -159,7 +162,7 @@ export function MobileSidebar({ isOpen, onOpenChange }: { isOpen: boolean, onOpe
             </div>
 
             <div className="mt-auto pt-10">
-                <Button variant="ghost" className="w-full justify-start gap-4 h-16 rounded-2xl text-rose-500 font-black uppercase text-[10px] tracking-widest px-8 bg-rose-50 border border-rose-100">
+                <Button onClick={() => { logout(); onOpenChange(false); }} variant="ghost" className="w-full justify-start gap-4 h-16 rounded-2xl text-rose-500 font-black uppercase text-[10px] tracking-widest px-8 bg-rose-50 border border-rose-100">
                     <LogOut className="h-5 w-5" />
                     Logout
                 </Button>

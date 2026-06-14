@@ -1,0 +1,1711 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import {
+    UserPlus,
+    Clock,
+    ChevronRight,
+    ArrowLeft,
+    Upload,
+    CheckCircle,
+    FileText,
+    ShieldCheck,
+    Loader2,
+    Sparkles,
+    AlertCircle,
+    X,
+    FileCheck,
+    Eye,
+    Send,
+    Download,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useRole } from "@/context/RoleContext";
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { apiGet, apiPost } from "@/lib/api-client";
+
+const steps = ["Personal Info", "Job Details", "Salary & Bank", "Documentation", "Review"];
+
+// ── Types for dynamically fetched data ──
+interface OfficeItem {
+    id: number;
+    name: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+    radius_meters?: number;
+    is_active: boolean;
+}
+
+interface CompanyItem {
+    id: number;
+    name: string;
+    address?: string;
+    is_active: boolean;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DUMMY DATA — one-click fill for development
+// ═══════════════════════════════════════════════════════════════
+const DUMMY_DATA = {
+    name: "Rahul Sharma",
+    email: "rahul.sharma@apaarlogistics.com",
+    phone: "9876543210",
+    dob: "1995-03-15",
+    gender: "male",
+    address: "12/3, MG Road, Vijay Nagar, Indore, MP 452010",
+    aadhaar: "123456789012",
+    role: "EMPLOYEE",
+    jobTitle: "Operations Manager",
+    dept: "Operations",
+    doj: "2026-06-15",
+    fixedGross: "45000",
+    bankName: "HDFC Bank",
+    accountNo: "50100123456789",
+    ifsc: "HDFC0001234",
+    paymentMode: "Bank Transfer",
+    pfApplicable: "Yes",
+    pfCeiling: "Yes",
+    esicApplicable: "Yes",
+    pfContributionMode: "shared",
+    pfEmployeeRate: "0.12",
+    pfEmployerRate: "0.12",
+    esicContributionMode: "shared",
+    esicEmployeeRate: "0.0075",
+    esicEmployerRate: "0.0325",
+    pfNo: "PF/MP/IND/001234",
+    uan: "101234567890",
+    pan: "ABCDE1234F",
+    licDetails: "LIC/IND/987654",
+    emergencyName: "Priya Sharma",
+    emergencyRelation: "Spouse",
+};
+
+// ═══════════════════════════════════════════════════════════════
+// VALIDATION
+// ═══════════════════════════════════════════════════════════════
+type FieldErrors = Record<string, string>;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const AADHAAR_RE = /^\d{12}$/;
+const UAN_RE = /^\d{12}$/;
+const PHONE_RE = /^(\+91[-\s]?)?[6-9]\d{9}$/;
+const ACCOUNT_NO_RE = /^\d{9,18}$/;
+
+const validateField = (id: string, value: string): string | null => {
+    const v = value.trim();
+    switch (id) {
+        // ── Step 0: Personal Info ──
+        case "name":
+            if (!v) return "Full name is required";
+            if (v.length < 2) return "Name must be at least 2 characters";
+            if (v.length > 100) return "Name must be under 100 characters";
+            return null;
+        case "email":
+            if (!v) return "Email address is required";
+            if (!EMAIL_RE.test(v)) return "Please enter a valid email address";
+            if (v.length > 150) return "Email must be under 150 characters";
+            return null;
+        case "phone":
+            if (v && !PHONE_RE.test(v.replace(/\s/g, ""))) return "Enter a valid 10-digit mobile number";
+            return null;
+        case "dob":
+            if (v) {
+                const d = new Date(v);
+                if (isNaN(d.getTime())) return "Invalid date";
+                const today = new Date();
+                const age18 = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+                if (d > age18) return "Employee must be at least 18 years old";
+            }
+            return null;
+        case "doj":
+            // joining date can be future — no strict validation
+            return null;
+        case "aadhaar":
+            if (v && !AADHAAR_RE.test(v)) return "Aadhaar must be exactly 12 digits";
+            return null;
+        case "pan":
+            if (v && !PAN_RE.test(v.toUpperCase())) return "PAN must be in format ABCDE1234F";
+            return null;
+        case "address":
+            if (v && v.length > 500) return "Address must be under 500 characters";
+            return null;
+        // ── Step 1: Job Details ──
+        case "jobTitle":
+            if (v && v.length > 80) return "Job title must be under 80 characters";
+            return null;
+        case "dept":
+            if (v && v.length > 80) return "Department must be under 80 characters";
+            return null;
+        case "emergencyName":
+            if (v && v.length > 100) return "Must be under 100 characters";
+            return null;
+        case "emergencyRelation":
+            if (v && v.length > 50) return "Must be under 50 characters";
+            return null;
+        // ── Step 2: Salary & Bank ──
+        case "fixedGross":
+            if (!v || isNaN(Number(v)) || Number(v) <= 0) return "Monthly CTC is required";
+            if (Number(v) < 5000) return "CTC must be at least ₹5,000";
+            if (Number(v) > 10000000) return "CTC seems too high";
+            return null;
+        case "bankName":
+            if (v && v.length > 100) return "Bank name must be under 100 characters";
+            return null;
+        case "accountNo":
+            if (v && !ACCOUNT_NO_RE.test(v)) return "Account number must be 9–18 digits";
+            return null;
+        case "ifsc":
+            if (v && !IFSC_RE.test(v.toUpperCase())) return "IFSC must be in format HDFC0001234";
+            return null;
+        case "pfEmployeeRate":
+        case "pfEmployerRate":
+        case "esicEmployeeRate":
+        case "esicEmployerRate":
+            if (v && (isNaN(Number(v)) || Number(v) < 0 || Number(v) > 1)) return "Rate must be between 0 and 1";
+            return null;
+        case "pfNo":
+            if (v && v.length > 30) return "PF number must be under 30 characters";
+            return null;
+        case "uan":
+            if (v && !UAN_RE.test(v)) return "UAN must be exactly 12 digits";
+            return null;
+        case "licDetails":
+            if (v && v.length > 100) return "LIC details must be under 100 characters";
+            return null;
+        // ── Shift configuration ──
+        case "shiftStartTime":
+            if (v && !/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) return "Must be HH:MM format (e.g., 09:00)";
+            return null;
+        case "shiftEndTime":
+            if (v && !/^([01]\d|2[0-3]):[0-5]\d$/.test(v)) return "Must be HH:MM format (e.g., 18:00)";
+            return null;
+        case "halfDayLateMinutes":
+            if (!v || isNaN(Number(v)) || Number(v) < 1 || Number(v) > 480) return "Must be 1–480 minutes";
+            return null;
+        default:
+            return null;
+    }
+};
+
+/** Validate all fields on a given step. Returns an object of { fieldId: errorMessage }. */
+const validateStep = (step: number, formData: Record<string, string>): FieldErrors => {
+    const errors: FieldErrors = {};
+    const check = (id: string) => {
+        const err = validateField(id, formData[id] || "");
+        if (err) errors[id] = err;
+    };
+    switch (step) {
+        case 0:
+            check("name");
+            check("email");
+            check("phone");
+            check("dob");
+            check("aadhaar");
+            check("pan");
+            check("address");
+            break;
+        case 1:
+            check("jobTitle");
+            check("dept");
+            check("emergencyName");
+            check("emergencyRelation");
+            break;
+        case 2:
+            check("fixedGross");
+            check("bankName");
+            check("accountNo");
+            check("ifsc");
+            check("pfEmployeeRate");
+            check("pfEmployerRate");
+            check("esicEmployeeRate");
+            check("esicEmployerRate");
+            check("pfNo");
+            check("uan");
+            check("licDetails");
+            check("shiftStartTime");
+            check("shiftEndTime");
+            check("halfDayLateMinutes");
+            break;
+    }
+    return errors;
+};
+
+// ═══════════════════════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════════════════════
+export default function OnboardingPage() {
+    const { availableRoles } = useRole();
+    const router = useRouter();
+    const [currentStep, setCurrentStep] = useState(0);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploadedFiles, setUploadedFiles] = useState<{ file: File; docType: string }[]>([]);
+
+    // ── Post-creation offer letter state ──
+    const [createdEmployee, setCreatedEmployee] = useState<{ id: number; emp_code: string; name: string; email: string } | null>(null);
+    const [offerLetterPreviewing, setOfferLetterPreviewing] = useState(false);
+    const [offerLetterSending, setOfferLetterSending] = useState(false);
+    const [offerLetterSent, setOfferLetterSent] = useState(false);
+    const [offerLetterSendingError, setOfferLetterSendingError] = useState<string | null>(null);
+
+    // ── Dynamic companies & offices (fetched from DB) ──
+    const [companies, setCompanies] = useState<CompanyItem[]>([]);
+    const [offices, setOffices] = useState<OfficeItem[]>([]);
+    const [loadingLookups, setLoadingLookups] = useState(true);
+
+    useEffect(() => {
+        let cancelled = false;
+        async function fetchLookups() {
+            try {
+                const [co, of] = await Promise.all([
+                    apiGet<CompanyItem[]>("/companies"),
+                    apiGet<OfficeItem[]>("/offices"),
+                ]);
+                if (!cancelled) {
+                    setCompanies(co);
+                    setOffices(of);
+                    // Set defaults to first item if available
+                    if (co.length > 0) {
+                        setFormData((prev) => ({ ...prev, company: co[0].id.toString() }));
+                    }
+                    if (of.length > 0) {
+                        setFormData((prev) => ({ ...prev, location: of[0].id.toString() }));
+                    }
+                }
+            } catch {
+                // silently keep defaults
+            } finally {
+                if (!cancelled) setLoadingLookups(false);
+            }
+        }
+        fetchLookups();
+        return () => { cancelled = true; };
+    }, []);
+    const [formData, setFormData] = useState({
+        // Step 0: Personal Info
+        name: "",
+        email: "",
+        phone: "",
+        dob: "",
+        gender: "male",
+        address: "",
+        aadhaar: "",
+        // Step 1: Job Details
+        company: "",
+        location: "",
+        role: "EMPLOYEE",
+        jobTitle: "",
+        dept: "",
+        doj: "",
+        // Step 2: Salary & Bank
+        fixedGross: "",
+        bankName: "",
+        accountNo: "",
+        ifsc: "",
+        paymentMode: "Bank Transfer",
+        pfApplicable: "Yes",
+        pfCeiling: "Yes",
+        esicApplicable: "Yes",
+        pfContributionMode: "shared",
+        pfEmployeeRate: "0.12",
+        pfEmployerRate: "0.12",
+        esicContributionMode: "shared",
+        esicEmployeeRate: "0.0075",
+        esicEmployerRate: "0.0325",
+        pfNo: "",
+        uan: "",
+        pan: "",
+        licDetails: "",
+        // Emergency contact
+        emergencyName: "",
+        emergencyRelation: "",
+        // Shift configuration
+        shiftStartTime: "09:00",
+        shiftEndTime: "18:00",
+        halfDayLateMinutes: "60",
+    });
+
+    // ── Field helpers ──
+    const updateField = (id: string, value: string) => {
+        setFormData((prev) => ({ ...prev, [id]: value }));
+        setError(null);
+        // Clear the field-level error on change
+        setFieldErrors((prev) => {
+            if (!prev[id]) return prev;
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
+    };
+
+    /** Validate on blur — shows error immediately but doesn't block navigation */
+    const handleBlur = (id: string) => {
+        const err = validateField(id, (formData as Record<string, string>)[id] || "");
+        setFieldErrors((prev) => {
+            if (err) return { ...prev, [id]: err };
+            if (!prev[id]) return prev;
+            const next = { ...prev };
+            delete next[id];
+            return next;
+        });
+    };
+
+    /** Fill all fields with realistic dummy data for development */
+    const fillDummyData = () => {
+        setFormData((prev) => ({ ...prev, ...DUMMY_DATA }));
+        setFieldErrors({});
+        setError(null);
+    };
+
+    /** Trigger the hidden file input */
+    const handleSelectFiles = () => {
+        fileInputRef.current?.click();
+    };
+
+    /** Handle files selected via the hidden input */
+    const handleFilesSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        // Auto-detect doc type from filename, default to "other"
+        const detectType = (name: string): string => {
+            const n = name.toLowerCase();
+            if (n.includes("aadhar")) return "Aadhar";
+            if (n.includes("pan")) return "PAN";
+            if (n.includes("bank") || n.includes("passbook")) return "Passbook";
+            if (n.includes("photo") || n.includes("image") || n.includes("pic")) return "Photo";
+            return "other";
+        };
+        setUploadedFiles((prev) => [...prev, ...files.map((f) => ({ file: f, docType: detectType(f.name) }))]);
+        e.target.value = "";
+    };
+
+    /** Update document type for a specific uploaded file */
+    const updateFileDocType = (index: number, docType: string) => {
+        setUploadedFiles((prev) => prev.map((f, i) => (i === index ? { ...f, docType } : f)));
+    };
+
+    /** Remove a specific file from the uploaded list */
+    const removeFile = (index: number) => {
+        setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    /** Shared input className builder — adds red ring on error */
+    const inputClass = (id: string, base: string) =>
+        cn(base, fieldErrors[id] && "ring-2 ring-red-200 bg-red-50/30");
+
+    /** Shared select className builder — adds red ring on error */
+    const selectClass = (id: string, base: string) =>
+        cn(base, fieldErrors[id] && "ring-2 ring-red-200 bg-red-50/30");
+
+    /** Inline field error message */
+    const fieldErrorEl = (id: string) => {
+        const msg = fieldErrors[id];
+        if (!msg) return null;
+        return (
+            <p className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1 animate-in slide-in-from-top-2">
+                <AlertCircle className="h-3 w-3 flex-shrink-0" /> {msg}
+            </p>
+        );
+    };
+
+    // ── Submission helpers ──
+    const generateEmpCode = (): string => {
+        const ts = Date.now().toString().slice(-6);
+        return `EMP${ts}`;
+    };
+
+    const buildPayload = () => {
+        const empCode = generateEmpCode();
+        const password = "Welcome@123";
+
+        return {
+            emp_code: empCode,
+            name: formData.name,
+            email: formData.email,
+            phone: formData.phone || null,
+            password,
+            date_of_birth: formData.dob || null,
+            gender: formData.gender,
+            address: formData.address || null,
+            designation: formData.jobTitle || null,
+            department: formData.dept || null,
+            role: formData.role.toLowerCase().replace(/ /g, "_"),
+            date_of_joining: formData.doj || null,
+            office_id: formData.location ? parseInt(formData.location) : null,
+            company_id: formData.company ? parseInt(formData.company) : null,
+            company_name: companies.find((c) => c.id.toString() === formData.company)?.name || null,
+            location: offices.find((o) => o.id.toString() === formData.location)?.name || null,
+            fixed_gross: formData.fixedGross ? Number(formData.fixedGross) : 0,
+            pf_applicable: formData.pfApplicable === "Yes",
+            pf_ceiling: formData.pfCeiling === "Yes",
+            pf_contribution_mode: formData.pfContributionMode,
+            pf_employee_rate: parseFloat(formData.pfEmployeeRate) || 0.12,
+            pf_employer_rate: parseFloat(formData.pfEmployerRate) || 0.12,
+            esic_applicable: formData.esicApplicable === "Yes",
+            esic_contribution_mode: formData.esicContributionMode,
+            esic_employee_rate: parseFloat(formData.esicEmployeeRate) || 0.0075,
+            esic_employer_rate: parseFloat(formData.esicEmployerRate) || 0.0325,
+            bank_name: formData.bankName || null,
+            bank_account_number: formData.accountNo || null,
+            ifsc_code: formData.ifsc || null,
+            pan_number: formData.pan || null,
+            pf_number: formData.pfNo || null,
+            uan: formData.uan || null,
+            emergency_contact_name: formData.emergencyName || null,
+            emergency_contact_relation: formData.emergencyRelation || null,
+            shift_start_time: formData.shiftStartTime || null,
+            shift_end_time: formData.shiftEndTime || null,
+            half_day_late_minutes: formData.halfDayLateMinutes ? Number(formData.halfDayLateMinutes) : 60,
+            send_offer_letter: true,
+        };
+    };
+
+    /** Validate current step before advancing */
+    const handleNextStep = () => {
+        const errors = validateStep(currentStep, formData as Record<string, string>);
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
+            return;
+        }
+        setFieldErrors({});
+        setCurrentStep((s) => s + 1);
+    };
+
+    const handleFinish = async () => {
+        // Validate all data-entry steps (0, 1, 2) before submitting
+        const allErrors: FieldErrors = {};
+        for (let i = 0; i <= 2; i++) {
+            const stepErrors = validateStep(i, formData as Record<string, string>);
+            Object.assign(allErrors, stepErrors);
+        }
+        if (Object.keys(allErrors).length > 0) {
+            setFieldErrors(allErrors);
+            setError("Please fix the validation errors before submitting.");
+            // Jump to the first step that has errors
+            for (let i = 0; i <= 2; i++) {
+                if (Object.keys(validateStep(i, formData as Record<string, string>)).length > 0) {
+                    setCurrentStep(i);
+                    break;
+                }
+            }
+            return;
+        }
+
+        setSubmitting(true);
+        setError(null);
+        setFieldErrors({});
+
+        try {
+            const payload = buildPayload();
+            const result = await apiPost<{ emp_code: string; name: string; email: string; id: number }>("/auth/register", payload);
+
+            // Upload selected documents to backend → Cloudinary
+            if (uploadedFiles.length > 0 && result.id) {
+                const token = localStorage.getItem("hrms_auth_token");
+                const formDataUpload = new FormData();
+
+                const typeByFilename = (name: string): string => {
+                    const n = name.toLowerCase();
+                    if (n.includes("aadhar")) return "aadhar";
+                    if (n.includes("pan")) return "pan";
+                    if (n.includes("bank") || n.includes("passbook")) return "passbook";
+                    if (n.includes("photo") || n.includes("image")) return "photo";
+                    return "other";
+                };
+
+                // Build per-file type array (JSON) so backend assigns correct type to each file
+                const types: string[] = [];
+                for (let i = 0; i < uploadedFiles.length; i++) {
+                    const entry = uploadedFiles[i];
+                    formDataUpload.append("files", entry.file);
+                    const docType = entry.docType !== "other"
+                        ? entry.docType.toLowerCase()
+                        : typeByFilename(entry.file.name);
+                    types.push(docType);
+                }
+                formDataUpload.append("types", JSON.stringify(types));
+
+                try {
+                    const uploadRes = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/documents/upload/multiple/${result.id}`, {
+                        method: "POST",
+                        headers: { Authorization: `Bearer ${token}` },
+                        body: formDataUpload,
+                    });
+                    if (!uploadRes.ok) {
+                        const errBody = await uploadRes.json().catch(() => ({}));
+                        console.warn("Document upload failed:", uploadRes.status, errBody.message || uploadRes.statusText);
+                    }
+                } catch (uploadErr) {
+                    console.warn("Document upload failed (non-fatal):", uploadErr);
+                }
+            }
+
+            setCreatedEmployee({
+                id: result.id,
+                emp_code: result.emp_code,
+                name: result.name,
+                email: result.email,
+            });
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "Failed to create employee. Please try again.";
+            const axiosErr = err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } };
+            if (axiosErr?.response?.data?.message) {
+                setError(axiosErr.response.data.message);
+            } else if (axiosErr?.response?.data?.errors) {
+                const fieldErrors = Object.values(axiosErr.response.data.errors).flat().join("; ");
+                setError(fieldErrors || msg);
+            } else {
+                setError(msg);
+            }
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    // ── Offer Letter Actions ──
+    const handlePreviewOfferLetter = async () => {
+        if (!createdEmployee) return;
+        setOfferLetterPreviewing(true);
+        try {
+            const token = localStorage.getItem("hrms_auth_token");
+            const res = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/letters/offer-letter/${createdEmployee.id}/preview`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ message: "Failed to generate preview" }));
+                throw new Error(err.message || "Failed to generate preview");
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            window.open(url, "_blank");
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "Failed to preview offer letter";
+            setOfferLetterSendingError(msg);
+        } finally {
+            setOfferLetterPreviewing(false);
+        }
+    };
+
+    const handleSendOfferLetter = async () => {
+        if (!createdEmployee) return;
+        setOfferLetterSending(true);
+        setOfferLetterSendingError(null);
+        try {
+            const token = localStorage.getItem("hrms_auth_token");
+            const res = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/letters/offer-letter/${createdEmployee.id}/send`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ password: "Welcome@123" }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ message: "Failed to send offer letter" }));
+                throw new Error(err.message || "Failed to send offer letter");
+            }
+            setOfferLetterSent(true);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "Failed to send offer letter";
+            setOfferLetterSendingError(msg);
+        } finally {
+            setOfferLetterSending(false);
+        }
+    };
+
+    const handleGoToEmployees = () => {
+        router.push("/employees");
+    };
+
+    return (
+        <ProtectedRoute module="EMPLOYEES" action="CREATE">
+            <div className="max-w-4xl mx-auto space-y-12 pb-20 px-4 md:px-0">
+                {createdEmployee ? (
+                    /* ── SUCCESS SCREEN ── */
+                    <div className="flex flex-col items-center justify-center space-y-10 pt-10 animate-in fade-in zoom-in-95">
+                        <div className="h-20 w-20 bg-emerald-100 rounded-[2rem] flex items-center justify-center shadow-xl shadow-emerald-100/30">
+                            <CheckCircle className="h-10 w-10 text-emerald-600" />
+                        </div>
+                        <div className="text-center space-y-2">
+                            <h3 className="text-3xl font-black text-slate-900 italic uppercase tracking-tighter">
+                                Employee Added!
+                            </h3>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                {createdEmployee.name} ({createdEmployee.emp_code}) has been created successfully.
+                            </p>
+                        </div>
+
+                        {/* Offer Letter Actions Card */}
+                        <Card className="w-full max-w-lg border-none shadow-sm rounded-[2.5rem] bg-white p-8">
+                            <CardHeader className="px-0 pt-0 pb-6 border-b border-slate-50">
+                                <CardTitle className="text-lg font-black text-slate-900 italic tracking-tighter uppercase flex items-center gap-2">
+                                    <FileText className="h-5 w-5 text-amber-500" />
+                                    Offer Letter
+                                </CardTitle>
+                                <CardDescription className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                    Preview, edit missing fields, and send the offer letter to {createdEmployee.email}
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="px-0 py-6 space-y-4">
+                                {offerLetterSendingError && (
+                                    <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl">
+                                        <div className="flex items-start gap-2">
+                                            <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+                                            <p className="text-[9px] font-black text-red-600 uppercase tracking-widest">{offerLetterSendingError}</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {offerLetterSent && (
+                                    <div className="p-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl">
+                                        <div className="flex items-start gap-2">
+                                            <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                                            <div>
+                                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Offer Letter Sent!</p>
+                                                <p className="text-[8px] font-bold text-emerald-500 mt-1">
+                                                    The offer letter has been emailed to {createdEmployee.email}. The employee can also view it in the HRMS portal.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 gap-3">
+                                    <Button
+                                        onClick={handlePreviewOfferLetter}
+                                        disabled={offerLetterPreviewing}
+                                        className="h-12 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 font-black text-[10px] uppercase tracking-widest border border-amber-200 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        {offerLetterPreviewing ? (
+                                            <><Loader2 className="h-4 w-4 animate-spin" /> Generating Preview...</>
+                                        ) : (
+                                            <><Eye className="h-4 w-4" /> View Offer Letter</>
+                                        )}
+                                    </Button>
+                                    <Button
+                                        onClick={handleSendOfferLetter}
+                                        disabled={offerLetterSending || offerLetterSent}
+                                        className="h-12 rounded-xl bg-slate-900 text-white hover:bg-black font-black text-[10px] uppercase tracking-[0.3em] shadow-2xl shadow-slate-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                    >
+                                        {offerLetterSending ? (
+                                            <><Loader2 className="h-4 w-4 animate-spin" /> Sending...</>
+                                        ) : offerLetterSent ? (
+                                            <><CheckCircle className="h-4 w-4" /> Sent!</>
+                                        ) : (
+                                            <><Send className="h-4 w-4" /> Send Offer Letter to Email</>
+                                        )}
+                                    </Button>
+                                </div>
+                            </CardContent>
+                            <CardFooter className="px-0 pb-0 pt-6 border-t border-slate-50 flex justify-center">
+                                <Button
+                                    onClick={handleGoToEmployees}
+                                    className="h-12 px-8 rounded-xl bg-white border-2 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
+                                >
+                                    Go to Employees <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    </div>
+                ) : (
+                    <>
+                        {/* Header section */}
+                        <div className="flex flex-col items-center text-center space-y-3 pt-6">
+                            <div className="h-14 w-14 bg-slate-900 rounded-[1.5rem] flex items-center justify-center shadow-xl">
+                                <UserPlus className="h-7 w-7 text-[#D9F99D]" />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-black text-slate-900 italic uppercase tracking-tighter underline underline-offset-8 decoration-[#D9F99D] decoration-2">
+                                    Add New Employee
+                                </h1>
+                                <p className="text-[9px] font-black text-slate-400 mt-6 uppercase tracking-[0.3em]">
+                                    Fill in the details to add a new person to the team.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Stepper */}
+                        <div className="relative flex justify-between items-center px-6 md:px-12">
+                            <div className="absolute top-1/2 left-0 w-full h-[1px] bg-slate-100 -translate-y-1/2 z-0" />
+                            {steps.map((step, i) => (
+                                <div key={i} className="relative z-10 flex flex-col items-center gap-3">
+                                    <div
+                                        className={cn(
+                                            "h-10 w-10 md:h-11 md:w-11 rounded-2xl flex items-center justify-center font-black text-xs transition-all duration-500 border-4",
+                                            currentStep >= i
+                                                ? "bg-slate-900 border-white text-[#D9F99D] shadow-lg"
+                                                : "bg-white border-slate-50 text-slate-200",
+                                        )}
+                                    >
+                                        {currentStep > i ? <CheckCircle className="h-5 w-5" /> : i + 1}
+                                    </div>
+                                    <span
+                                        className={cn(
+                                            "text-[7px] md:text-[8px] font-black uppercase tracking-widest hidden md:block",
+                                            currentStep >= i ? "text-slate-900" : "text-slate-300",
+                                        )}
+                                    >
+                                        {step}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Main Form Card */}
+                        <Card className="border-none shadow-sm rounded-[2.5rem] bg-white p-6 md:p-12">
+                            <CardHeader className="px-0 pt-0 pb-10 border-b border-slate-50">
+                                <div className="flex items-center justify-between">
+                                    <div className="space-y-1">
+                                        <CardTitle className="text-2xl font-black text-slate-900 italic tracking-tighter uppercase">
+                                            {steps[currentStep]}
+                                        </CardTitle>
+                                        <CardDescription className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                            Step {currentStep + 1} of {steps.length}
+                                        </CardDescription>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {/* ── Fill Dummy Data Button (dev only) ── */}
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={fillDummyData}
+                                            disabled={submitting}
+                                            className="h-9 px-4 rounded-xl border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 font-black text-[9px] uppercase tracking-widest transition-all"
+                                        >
+                                            <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Fill Dummy
+                                        </Button>
+                                        <div className="h-12 w-12 rounded-2xl bg-slate-50 flex items-center justify-center">
+                                            <ShieldCheck className="h-6 w-6 text-slate-200" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardHeader>
+
+                            <CardContent className="px-0 py-10 min-h-[400px]">
+                                {/* Global error banner */}
+                                {error && (
+                                    <div
+                                        ref={(el) => { if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); } }}
+                                        className="mb-8 p-5 bg-red-50 border-2 border-red-200 rounded-2xl animate-pulse"
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 shrink-0" />
+                                            <div>
+                                                <p className="text-[9px] font-black text-red-500 uppercase tracking-[0.3em] mb-1">Registration Error</p>
+                                                <p className="text-xs font-bold text-red-700">{error}</p>
+                                                <p className="text-[9px] font-semibold text-red-400 mt-2">If the email is already registered, go to the employee list to delete the duplicate first.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ── STEP 0: Personal Info ── */}
+                                {currentStep === 0 && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 animate-in fade-in slide-in-from-right-4">
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                Full Name <span className="text-red-400">*</span>
+                                            </Label>
+                                            <Input
+                                                placeholder="e.g. Walt Whitman"
+                                                className={inputClass("name", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest")}
+                                                value={formData.name}
+                                                onChange={(e) => updateField("name", e.target.value)}
+                                                onBlur={() => handleBlur("name")}
+                                            />
+                                            {fieldErrorEl("name")}
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                Email Address <span className="text-red-400">*</span>
+                                            </Label>
+                                            <Input
+                                                placeholder="walt@hrms.io"
+                                                className={inputClass("email", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs lowercase")}
+                                                value={formData.email}
+                                                onChange={(e) => updateField("email", e.target.value)}
+                                                onBlur={() => handleBlur("email")}
+                                            />
+                                            {fieldErrorEl("email")}
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                Phone Number
+                                            </Label>
+                                            <Input
+                                                placeholder="+91 00000 00000"
+                                                className={inputClass("phone", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs")}
+                                                value={formData.phone}
+                                                onChange={(e) => updateField("phone", e.target.value)}
+                                                onBlur={() => handleBlur("phone")}
+                                            />
+                                            {fieldErrorEl("phone")}
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                Gender
+                                            </Label>
+                                            <select
+                                                className="w-full h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none"
+                                                value={formData.gender}
+                                                onChange={(e) => updateField("gender", e.target.value)}
+                                            >
+                                                <option value="male">Male</option>
+                                                <option value="female">Female</option>
+                                                <option value="other">Other</option>
+                                            </select>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                Date of Birth
+                                            </Label>
+                                            <Input
+                                                type="date"
+                                                className={inputClass("dob", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs")}
+                                                value={formData.dob}
+                                                onChange={(e) => updateField("dob", e.target.value)}
+                                                onBlur={() => handleBlur("dob")}
+                                            />
+                                            {fieldErrorEl("dob")}
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                Date of Joining
+                                            </Label>
+                                            <Input
+                                                type="date"
+                                                className="h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs"
+                                                value={formData.doj}
+                                                onChange={(e) => updateField("doj", e.target.value)}
+                                            />
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                Aadhaar Number
+                                            </Label>
+                                            <Input
+                                                placeholder="0000 0000 0000"
+                                                className={inputClass("aadhaar", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs tracking-widest")}
+                                                value={formData.aadhaar}
+                                                onChange={(e) => updateField("aadhaar", e.target.value)}
+                                                onBlur={() => handleBlur("aadhaar")}
+                                            />
+                                            {fieldErrorEl("aadhaar")}
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                PAN Number
+                                            </Label>
+                                            <Input
+                                                placeholder="ABCDE1234F"
+                                                className={inputClass("pan", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest")}
+                                                value={formData.pan}
+                                                onChange={(e) => updateField("pan", e.target.value.toUpperCase())}
+                                                onBlur={() => handleBlur("pan")}
+                                            />
+                                            {fieldErrorEl("pan")}
+                                        </div>
+                                        <div className="space-y-3 md:col-span-2">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                Address
+                                            </Label>
+                                            <Input
+                                                placeholder="Full address..."
+                                                className={inputClass("address", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs")}
+                                                value={formData.address}
+                                                onChange={(e) => updateField("address", e.target.value)}
+                                                onBlur={() => handleBlur("address")}
+                                            />
+                                            {fieldErrorEl("address")}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ── STEP 1: Job Details ── */}
+                                {currentStep === 1 && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 animate-in fade-in slide-in-from-right-4">
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Company Entity
+                                            </Label>
+                                            <select
+                                                className="w-full h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none"
+                                                value={formData.company}
+                                                onChange={(e) => updateField("company", e.target.value)}
+                                                disabled={loadingLookups}
+                                            >
+                                                {loadingLookups ? (
+                                                    <option>Loading...</option>
+                                                ) : (
+                                                    companies.map((c) => (
+                                                        <option key={c.id} value={c.id.toString()}>
+                                                            {c.name}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Office Location
+                                            </Label>
+                                            <select
+                                                className="w-full h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none"
+                                                value={formData.location}
+                                                onChange={(e) => updateField("location", e.target.value)}
+                                                disabled={loadingLookups}
+                                            >
+                                                {loadingLookups ? (
+                                                    <option>Loading...</option>
+                                                ) : (
+                                                    offices.map((o) => (
+                                                        <option key={o.id} value={o.id.toString()}>
+                                                            {o.name}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Role
+                                            </Label>
+                                            <select
+                                                className="w-full h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none"
+                                                value={formData.role}
+                                                onChange={(e) => updateField("role", e.target.value)}
+                                            >
+                                                {availableRoles.map((r) => (
+                                                    <option key={r.name} value={r.name}>
+                                                        {r.name.replace(/_/g, " ")}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Job Title
+                                            </Label>
+                                            <Input
+                                                placeholder="e.g. Senior Manager"
+                                                className={inputClass("jobTitle", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest")}
+                                                value={formData.jobTitle}
+                                                onChange={(e) => updateField("jobTitle", e.target.value)}
+                                                onBlur={() => handleBlur("jobTitle")}
+                                            />
+                                            {fieldErrorEl("jobTitle")}
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Department
+                                            </Label>
+                                            <Input
+                                                placeholder="e.g. Operations"
+                                                className={inputClass("dept", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest")}
+                                                value={formData.dept}
+                                                onChange={(e) => updateField("dept", e.target.value)}
+                                                onBlur={() => handleBlur("dept")}
+                                            />
+                                            {fieldErrorEl("dept")}
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Emergency Contact Name
+                                            </Label>
+                                            <Input
+                                                placeholder="e.g. John Doe"
+                                                className={inputClass("emergencyName", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest")}
+                                                value={formData.emergencyName}
+                                                onChange={(e) => updateField("emergencyName", e.target.value)}
+                                                onBlur={() => handleBlur("emergencyName")}
+                                            />
+                                            {fieldErrorEl("emergencyName")}
+                                        </div>
+                                        <div className="space-y-3">
+                                            <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Emergency Contact Relation
+                                            </Label>
+                                            <Input
+                                                placeholder="e.g. Spouse"
+                                                className={inputClass("emergencyRelation", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest")}
+                                                value={formData.emergencyRelation}
+                                                onChange={(e) => updateField("emergencyRelation", e.target.value)}
+                                                onBlur={() => handleBlur("emergencyRelation")}
+                                            />
+                                            {fieldErrorEl("emergencyRelation")}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ── STEP 2: Salary & Bank ── */}
+                                {currentStep === 2 && (
+                                    <>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-8 animate-in fade-in slide-in-from-right-4">
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                                                    Monthly Fixed Gross (CTC) <span className="text-red-400">*</span>
+                                                </Label>
+                                                <Input
+                                                    type="number"
+                                                    placeholder="e.g. 85000"
+                                                    className={inputClass("fixedGross", "h-12 bg-emerald-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-emerald-900")}
+                                                    value={formData.fixedGross}
+                                                    onChange={(e) => updateField("fixedGross", e.target.value)}
+                                                    onBlur={() => handleBlur("fixedGross")}
+                                                />
+                                                {fieldErrorEl("fixedGross")}
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Bank Name
+                                                </Label>
+                                                <Input
+                                                    placeholder="e.g. HDFC Bank"
+                                                    className={inputClass("bankName", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest")}
+                                                    value={formData.bankName}
+                                                    onChange={(e) => updateField("bankName", e.target.value)}
+                                                    onBlur={() => handleBlur("bankName")}
+                                                />
+                                                {fieldErrorEl("bankName")}
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Account Number
+                                                </Label>
+                                                <Input
+                                                    placeholder="0000 0000 0000"
+                                                    className={inputClass("accountNo", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs tracking-widest")}
+                                                    value={formData.accountNo}
+                                                    onChange={(e) => updateField("accountNo", e.target.value)}
+                                                    onBlur={() => handleBlur("accountNo")}
+                                                />
+                                                {fieldErrorEl("accountNo")}
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    IFSC Code
+                                                </Label>
+                                                <Input
+                                                    placeholder="HDFC0001234"
+                                                    className={inputClass("ifsc", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest")}
+                                                    value={formData.ifsc}
+                                                    onChange={(e) => updateField("ifsc", e.target.value.toUpperCase())}
+                                                    onBlur={() => handleBlur("ifsc")}
+                                                />
+                                                {fieldErrorEl("ifsc")}
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Payment Mode
+                                                </Label>
+                                                <select
+                                                    className="w-full h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none"
+                                                    value={formData.paymentMode}
+                                                    onChange={(e) => updateField("paymentMode", e.target.value)}
+                                                >
+                                                    <option value="Bank Transfer">Bank Transfer</option>
+                                                    <option value="Cash">Cash</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                                                    PF Applicable
+                                                </Label>
+                                                <select
+                                                    className="w-full h-12 bg-indigo-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none text-indigo-900"
+                                                    value={formData.pfApplicable}
+                                                    onChange={(e) => updateField("pfApplicable", e.target.value)}
+                                                >
+                                                    <option value="Yes">Yes</option>
+                                                    <option value="No">No</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                                                    PF Ceiling Limit
+                                                </Label>
+                                                <select
+                                                    className="w-full h-12 bg-indigo-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none text-indigo-900"
+                                                    value={formData.pfCeiling}
+                                                    onChange={(e) => updateField("pfCeiling", e.target.value)}
+                                                >
+                                                    <option value="Yes">Yes (₹15,000 cap)</option>
+                                                    <option value="No">No (Actual Basic)</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
+                                                    ESIC Applicable
+                                                </Label>
+                                                <select
+                                                    className="w-full h-12 bg-blue-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none text-blue-900"
+                                                    value={formData.esicApplicable}
+                                                    onChange={(e) => updateField("esicApplicable", e.target.value)}
+                                                >
+                                                    <option value="Yes">Yes</option>
+                                                    <option value="No">No</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                                                    PF Contribution Mode
+                                                </Label>
+                                                <select
+                                                    className="w-full h-12 bg-emerald-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none text-emerald-900"
+                                                    value={formData.pfContributionMode}
+                                                    onChange={(e) => updateField("pfContributionMode", e.target.value)}
+                                                >
+                                                    <option value="none">None (Not Applicable)</option>
+                                                    <option value="employee_only">Employee Only</option>
+                                                    <option value="employer_only">Employer Only</option>
+                                                    <option value="shared">Shared (Both)</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                                                    PF Employee Rate (Decimal)
+                                                </Label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.0001"
+                                                    min="0"
+                                                    max="1"
+                                                    placeholder="e.g. 0.12 for 12%"
+                                                    className={inputClass("pfEmployeeRate", "h-12 bg-emerald-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-emerald-900")}
+                                                    value={formData.pfEmployeeRate}
+                                                    onChange={(e) => updateField("pfEmployeeRate", e.target.value)}
+                                                    onBlur={() => handleBlur("pfEmployeeRate")}
+                                                />
+                                                {fieldErrorEl("pfEmployeeRate")}
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                                                    PF Employer Rate (Decimal)
+                                                </Label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.0001"
+                                                    min="0"
+                                                    max="1"
+                                                    placeholder="e.g. 0.12 for 12%"
+                                                    className={inputClass("pfEmployerRate", "h-12 bg-emerald-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-emerald-900")}
+                                                    value={formData.pfEmployerRate}
+                                                    onChange={(e) => updateField("pfEmployerRate", e.target.value)}
+                                                    onBlur={() => handleBlur("pfEmployerRate")}
+                                                />
+                                                {fieldErrorEl("pfEmployerRate")}
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
+                                                    ESIC Contribution Mode
+                                                </Label>
+                                                <select
+                                                    className="w-full h-12 bg-blue-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none text-blue-900"
+                                                    value={formData.esicContributionMode}
+                                                    onChange={(e) => updateField("esicContributionMode", e.target.value)}
+                                                >
+                                                    <option value="none">None (Not Applicable)</option>
+                                                    <option value="shared">Shared (Both)</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
+                                                    ESIC Employee Rate (Decimal)
+                                                </Label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.0001"
+                                                    min="0"
+                                                    max="1"
+                                                    placeholder="e.g. 0.0075 for 0.75%"
+                                                    className={inputClass("esicEmployeeRate", "h-12 bg-blue-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-blue-900")}
+                                                    value={formData.esicEmployeeRate}
+                                                    onChange={(e) => updateField("esicEmployeeRate", e.target.value)}
+                                                    onBlur={() => handleBlur("esicEmployeeRate")}
+                                                />
+                                                {fieldErrorEl("esicEmployeeRate")}
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
+                                                    ESIC Employer Rate (Decimal)
+                                                </Label>
+                                                <Input
+                                                    type="number"
+                                                    step="0.0001"
+                                                    min="0"
+                                                    max="1"
+                                                    placeholder="e.g. 0.0325 for 3.25%"
+                                                    className={inputClass("esicEmployerRate", "h-12 bg-blue-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-blue-900")}
+                                                    value={formData.esicEmployerRate}
+                                                    onChange={(e) => updateField("esicEmployerRate", e.target.value)}
+                                                    onBlur={() => handleBlur("esicEmployerRate")}
+                                                />
+                                                {fieldErrorEl("esicEmployerRate")}
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    PF Number
+                                                </Label>
+                                                <Input
+                                                    placeholder="PF/IND/001"
+                                                    className={inputClass("pfNo", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest")}
+                                                    value={formData.pfNo}
+                                                    onChange={(e) => updateField("pfNo", e.target.value)}
+                                                    onBlur={() => handleBlur("pfNo")}
+                                                />
+                                                {fieldErrorEl("pfNo")}
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    UAN ID
+                                                </Label>
+                                                <Input
+                                                    placeholder="1000 0000 0000"
+                                                    className={inputClass("uan", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs tracking-widest")}
+                                                    value={formData.uan}
+                                                    onChange={(e) => updateField("uan", e.target.value)}
+                                                    onBlur={() => handleBlur("uan")}
+                                                />
+                                                {fieldErrorEl("uan")}
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                    LIC Policy
+                                                </Label>
+                                                <Input
+                                                    placeholder="e.g. Policy No: 12345"
+                                                    className={inputClass("licDetails", "h-12 bg-slate-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest")}
+                                                    value={formData.licDetails}
+                                                    onChange={(e) => updateField("licDetails", e.target.value)}
+                                                    onBlur={() => handleBlur("licDetails")}
+                                                />
+                                                {fieldErrorEl("licDetails")}
+                                            </div>
+                                        </div>
+
+                                        {/* ── Shift Configuration ── */}
+                                        <div className="p-6 bg-amber-50/50 rounded-[2rem] border border-amber-100 space-y-5">
+                                            <div className="flex items-center gap-2">
+                                                <Clock className="h-4 w-4 text-amber-500" />
+                                                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">
+                                                    Shift Configuration
+                                                </p>
+                                            </div>
+                                            <p className="text-[9px] font-bold text-amber-500/70 uppercase tracking-widest">
+                                                Set employee shift timing and half-day threshold
+                                            </p>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                <div className="space-y-3">
+                                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                        Shift Start Time
+                                                    </Label>
+                                                    <Input
+                                                        type="time"
+                                                        className={inputClass("shiftStartTime", "h-12 bg-white border-slate-100 rounded-xl px-5 font-black text-xs tracking-widest")}
+                                                        value={formData.shiftStartTime}
+                                                        onChange={(e) => updateField("shiftStartTime", e.target.value)}
+                                                        onBlur={() => handleBlur("shiftStartTime")}
+                                                    />
+                                                    {fieldErrorEl("shiftStartTime")}
+                                                </div>
+                                                <div className="space-y-3">
+                                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                        Shift End Time
+                                                    </Label>
+                                                    <Input
+                                                        type="time"
+                                                        className={inputClass("shiftEndTime", "h-12 bg-white border-slate-100 rounded-xl px-5 font-black text-xs tracking-widest")}
+                                                        value={formData.shiftEndTime}
+                                                        onChange={(e) => updateField("shiftEndTime", e.target.value)}
+                                                        onBlur={() => handleBlur("shiftEndTime")}
+                                                    />
+                                                    {fieldErrorEl("shiftEndTime")}
+                                                </div>
+                                                <div className="space-y-3">
+                                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                        Half-Day Late (min)
+                                                    </Label>
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="60"
+                                                        min="1"
+                                                        max="480"
+                                                        className={inputClass("halfDayLateMinutes", "h-12 bg-white border-slate-100 rounded-xl px-5 font-black text-xs tracking-widest")}
+                                                        value={formData.halfDayLateMinutes}
+                                                        onChange={(e) => updateField("halfDayLateMinutes", e.target.value)}
+                                                        onBlur={() => handleBlur("halfDayLateMinutes")}
+                                                    />
+                                                    {fieldErrorEl("halfDayLateMinutes")}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* ── STEP 3: Documentation ── */}
+                                {currentStep === 3 && (
+                                    <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+                                        {/* Hidden file input */}
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            multiple
+                                            accept="image/*,.pdf"
+                                            className="hidden"
+                                            onChange={handleFilesSelected}
+                                        />
+
+                                        {/* Drop zone */}
+                                        <div
+                                            onClick={handleSelectFiles}
+                                            className="border-4 border-dashed border-slate-200 rounded-[2rem] p-16 text-center space-y-6 bg-slate-50/20 hover:bg-slate-50 hover:border-slate-400 transition-all group flex flex-col items-center cursor-pointer"
+                                        >
+                                            <div className="h-16 w-16 bg-white rounded-[1.2rem] shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform">
+                                                <Upload className="h-8 w-8 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <h3 className="text-xl font-black text-slate-900 italic uppercase">
+                                                    Upload Documents
+                                                </h3>
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                                                    Aadhar • PAN • Bank Proof • Photos
+                                                </p>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                className="bg-slate-900 text-white font-black hover:bg-black px-12 h-12 rounded-xl shadow-xl uppercase text-[10px] tracking-widest pointer-events-none"
+                                            >
+                                                Select Files
+                                            </Button>
+                                        </div>
+
+                                        {/* Uploaded files list */}
+                                        {uploadedFiles.length > 0 && (
+                                            <div className="space-y-4">
+                                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                                    Uploaded Files ({uploadedFiles.length})
+                                                </p>
+                                                <div className="space-y-2">
+                                                    {uploadedFiles.map((entry, i) => (
+                                                        <div
+                                                            key={`${entry.file.name}-${i}`}
+                                                            className="flex items-center justify-between p-4 bg-white border-2 border-slate-50 rounded-2xl hover:border-emerald-200 transition-all shadow-sm gap-3"
+                                                        >
+                                                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                                <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
+                                                                    <FileCheck className="h-5 w-5 text-emerald-500" />
+                                                                </div>
+                                                                <div className="text-left min-w-0 flex-1">
+                                                                    <p className="text-[10px] font-black text-slate-900 uppercase tracking-widest truncate max-w-[180px] md:max-w-[360px]">
+                                                                        {entry.file.name}
+                                                                    </p>
+                                                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                                                                        {(entry.file.size / 1024).toFixed(1)} KB
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <select
+                                                                value={entry.docType}
+                                                                onChange={(e) => updateFileDocType(i, e.target.value)}
+                                                                className="h-9 rounded-xl border-2 border-slate-100 bg-slate-50 px-3 text-[9px] font-black uppercase tracking-widest text-slate-600 focus:outline-none focus:border-emerald-300 flex-shrink-0"
+                                                            >
+                                                                <option value="other">Type</option>
+                                                                <option value="Aadhar">Aadhar</option>
+                                                                <option value="PAN">PAN</option>
+                                                                <option value="Passbook">Passbook</option>
+                                                                <option value="Photo">Photo</option>
+                                                            </select>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeFile(i)}
+                                                                className="h-8 w-8 rounded-xl bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors flex-shrink-0"
+                                                            >
+                                                                <X className="h-4 w-4 text-red-400" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Required document placeholders */}
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                            {["Aadhar", "PAN", "Passbook", "Photo"].map((doc, i) => {
+                                                const hasFile = uploadedFiles.some((f) => f.docType === doc);
+                                                return (
+                                                    <div
+                                                        key={i}
+                                                        className={cn(
+                                                            "flex flex-col items-center gap-4 p-6 bg-white border-2 rounded-2xl group shadow-sm transition-all text-center",
+                                                            hasFile
+                                                                ? "border-emerald-200 bg-emerald-50/30"
+                                                                : "border-slate-50 hover:border-slate-900",
+                                                        )}
+                                                    >
+                                                        <div
+                                                            className={cn(
+                                                                "h-10 w-10 rounded-xl flex items-center justify-center transition-colors",
+                                                                hasFile
+                                                                    ? "bg-emerald-500"
+                                                                    : "bg-slate-50 group-hover:bg-slate-900",
+                                                            )}
+                                                        >
+                                                            {hasFile ? (
+                                                                <CheckCircle className="h-5 w-5 text-white" />
+                                                            ) : (
+                                                                <FileText className="h-5 w-5 text-slate-200 group-hover:text-[#D9F99D]" />
+                                                            )}
+                                                        </div>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-900">
+                                                            {doc}
+                                                        </span>
+                                                        <Badge
+                                                            className={cn(
+                                                                "border-none font-black text-[7px] h-5 tracking-widest px-3",
+                                                                hasFile
+                                                                    ? "bg-emerald-100 text-emerald-700"
+                                                                    : "bg-slate-50 text-slate-300",
+                                                            )}
+                                                        >
+                                                            {hasFile ? "UPLOADED" : "PENDING"}
+                                                        </Badge>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* ── STEP 4: Review ── */}
+                                {currentStep === 4 && (
+                                    <div className="flex flex-col items-center justify-center space-y-10 text-center py-10 animate-in fade-in zoom-in-95">
+                                        <div className="h-20 w-20 bg-[#D9F99D] rounded-[2rem] flex items-center justify-center shadow-xl shadow-[#D9F99D]/20 animate-bounce">
+                                            <CheckCircle className="h-10 w-10 text-slate-900" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <h3 className="text-3xl font-black text-slate-900 italic uppercase tracking-tighter">
+                                                Review & Finish
+                                            </h3>
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                Check everything before adding the employee.
+                                            </p>
+                                        </div>
+                                        <div className="w-full max-w-2xl grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+                                            <div className="p-8 bg-slate-50 rounded-[2rem] space-y-6">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white pb-3">
+                                                    Personal Details
+                                                </p>
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">Full Name</p>
+                                                        <p className="text-sm font-black italic uppercase text-slate-900">
+                                                            {formData.name || "N/A"}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">Email</p>
+                                                        <p className="text-sm font-black text-slate-900 lowercase">
+                                                            {formData.email || "N/A"}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">Gender</p>
+                                                        <p className="text-sm font-black text-slate-900 uppercase">
+                                                            {formData.gender}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">Aadhaar</p>
+                                                        <p className="text-sm font-black text-slate-900">
+                                                            {formData.aadhaar || "N/A"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="p-8 bg-slate-50 rounded-[2rem] space-y-6">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white pb-3">
+                                                    Job Details
+                                                </p>
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">Company Entity</p>
+                                                        <p className="text-sm font-black italic uppercase text-slate-900">
+                                                            {companies.find((c) => c.id.toString() === formData.company)?.name || formData.company || "N/A"}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">Office Location</p>
+                                                        <p className="text-sm font-black italic uppercase text-slate-900">
+                                                            {offices.find((o) => o.id.toString() === formData.location)?.name || formData.location || "N/A"}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">Role</p>
+                                                        <p className="text-sm font-black text-slate-900 uppercase tracking-widest">
+                                                            {formData.role}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">Designation</p>
+                                                        <p className="text-sm font-black text-slate-900 uppercase tracking-widest">
+                                                            {formData.jobTitle || "N/A"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="p-8 bg-slate-50 rounded-[2rem] space-y-6 md:col-span-2">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white pb-3">
+                                                    Compensation & Compliance
+                                                </p>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-emerald-500 uppercase">Monthly Fixed CTC</p>
+                                                        <p className="text-sm font-black text-emerald-600 uppercase tracking-widest">
+                                                            ₹{formData.fixedGross ? Number(formData.fixedGross).toLocaleString("en-IN") : "0"}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">Payment Mode</p>
+                                                        <p className="text-sm font-black text-slate-900 uppercase tracking-widest">
+                                                            {formData.paymentMode}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-indigo-400 uppercase">PF Mode</p>
+                                                        <p className="text-sm font-black text-indigo-600 uppercase tracking-widest">
+                                                            {formData.pfContributionMode.replace(/_/g, " ")}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-indigo-400 uppercase">PF Rate (Ee:Er)</p>
+                                                        <p className="text-sm font-black text-indigo-600 uppercase tracking-widest">
+                                                            {formData.pfEmployeeRate}:{formData.pfEmployerRate}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-blue-400 uppercase">ESIC Mode</p>
+                                                        <p className="text-sm font-black text-blue-600 uppercase tracking-widest">
+                                                            {formData.esicContributionMode.replace(/_/g, " ")}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-blue-400 uppercase">ESIC Rate (Ee:Er)</p>
+                                                        <p className="text-sm font-black text-blue-600 uppercase tracking-widest">
+                                                            {formData.esicEmployeeRate}:{formData.esicEmployerRate}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-indigo-400 uppercase">PF Applicable</p>
+                                                        <p className="text-sm font-black text-indigo-600 uppercase tracking-widest">
+                                                            {formData.pfApplicable}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-blue-400 uppercase">ESIC Applicable</p>
+                                                        <p className="text-sm font-black text-blue-600 uppercase tracking-widest">
+                                                            {formData.esicApplicable}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="p-8 bg-amber-50/30 rounded-[2rem] space-y-6 md:col-span-2 border border-amber-100">
+                                                <p className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] border-b border-amber-100 pb-3">
+                                                    Shift Configuration
+                                                </p>
+                                                <div className="grid grid-cols-3 gap-4">
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-amber-400 uppercase">Shift Start</p>
+                                                        <p className="text-sm font-black text-amber-700 uppercase tracking-widest">
+                                                            {formData.shiftStartTime}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-amber-400 uppercase">Shift End</p>
+                                                        <p className="text-sm font-black text-amber-700 uppercase tracking-widest">
+                                                            {formData.shiftEndTime}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-amber-400 uppercase">Half-Day Threshold</p>
+                                                        <p className="text-sm font-black text-amber-700 uppercase tracking-widest">
+                                                            {formData.halfDayLateMinutes} min
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="p-8 bg-slate-50 rounded-[2rem] space-y-6 md:col-span-2">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-white pb-3">
+                                                    Emergency Contact
+                                                </p>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">Contact Name</p>
+                                                        <p className="text-sm font-black text-slate-900 uppercase">
+                                                            {formData.emergencyName || "N/A"}
+                                                        </p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[7px] font-black text-slate-400 uppercase">Relation</p>
+                                                        <p className="text-sm font-black text-slate-900 uppercase">
+                                                            {formData.emergencyRelation || "N/A"}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+
+                            <CardFooter className="px-0 pb-0 pt-10 border-t border-slate-50 flex justify-between items-center bg-transparent">
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => setCurrentStep(Math.max(0, currentStep - 1))}
+                                    disabled={currentStep === 0 || submitting}
+                                    className="h-12 px-8 rounded-xl gap-3 text-slate-400 hover:text-slate-900 font-black uppercase tracking-widest text-[9px] transition-all"
+                                >
+                                    <ArrowLeft className="h-4 w-4" /> Go Back
+                                </Button>
+                                <Button
+                                    onClick={() => {
+                                        if (currentStep === steps.length - 1) {
+                                            handleFinish();
+                                        } else {
+                                            handleNextStep();
+                                        }
+                                    }}
+                                    disabled={submitting}
+                                    className="h-12 px-12 rounded-xl bg-slate-900 text-white font-black uppercase tracking-[0.3em] text-[10px] shadow-2xl shadow-slate-200 hover:bg-black transition-all flex items-center gap-3 disabled:opacity-50"
+                                >
+                                    {submitting ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" /> Creating...
+                                        </>
+                                    ) : currentStep === steps.length - 1 ? (
+                                        <>
+                                            Add Employee <ChevronRight className="h-4 w-4" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            Next Step <ChevronRight className="h-4 w-4" />
+                                        </>
+                                    )}
+                                </Button>
+                            </CardFooter>
+                        </Card>
+                    </>
+                )}
+            </div>
+        </ProtectedRoute >
+    );
+}

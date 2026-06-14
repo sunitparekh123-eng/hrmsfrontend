@@ -1,0 +1,787 @@
+"use client";
+import { cn } from "@/lib/utils";
+import { apiGet, apiPatch, apiPost, apiGetPaginated } from "@/lib/api-client";
+
+import { useRole } from "@/context/RoleContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useState, useEffect } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import {
+    Wallet,
+    ArrowUpRight,
+    History,
+    Download,
+    CheckCircle2,
+    CreditCard,
+    ShieldCheck,
+    Briefcase,
+    TrendingUp,
+    FileText,
+    ArrowDownRight,
+    PieChart,
+    Banknote,
+    MoreHorizontal,
+    Check,
+    FileSpreadsheet,
+    Plus,
+    Info,
+    Search,
+    Filter,
+    Clock,
+    FileDown,
+    LayoutList,
+    CalendarCheck,
+    AlertCircle,
+    UserCircle,
+    ChevronRight,
+    ChevronLeft
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
+    Sheet,
+    SheetContent,
+    SheetDescription,
+    SheetHeader,
+    SheetTitle,
+    SheetFooter,
+} from "@/components/ui/sheet";
+import {
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger
+} from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import Link from "next/link";
+import {
+    GlobalRulesSheet,
+    DisbursementDialog,
+    EmployeeHistoryDialog,
+    PayrollPolicyDialog
+} from "@/components/payroll/PayrollModals";
+
+const getInitials = (name: string) => {
+    return name
+        .split(" ")
+        .filter(Boolean)
+        .map(n => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+};
+
+export default function PayrollPage() {
+    const [isConfigOpen, setIsConfigOpen] = useState(false);
+
+    const [isSendDialogOpen, setIsSendDialogOpen] = useState(false);
+    const [isPastOpen, setIsPastOpen] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    const [isPolicyOpen, setIsPolicyOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
+    const [statusFilter, setStatusFilter] = useState("ALL");
+    const [selectedRows, setSelectedRows] = useState<number[]>([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [loading, setLoading] = useState(true);
+    const [cycleId, setCycleId] = useState<number | null>(null);
+    const itemsPerPage = 4;
+
+    const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+    const [disbursementStep, setDisbursementStep] = useState(1);
+    const [txDetails, setTxDetails] = useState({
+        mode: "NEFT/RTGS",
+        reference: `PAY-BATCH-${new Date().getTime().toString().slice(-6)}`,
+        authorizedBy: "HR Manager",
+        remarks: "Monthly Payroll Release"
+    });
+
+    const [globalRules, setGlobalRules] = useState({
+        pfEmployer: 12,
+        pfEmployee: 12,
+        hraPercent: 40,
+        defaultPT: 200,
+        cycle: "MAY 2026"
+    });
+
+    const [pastCycles, setPastCycles] = useState<any[]>([]);
+    const [selectedBranch, setSelectedBranch] = useState("All Branches");
+    const [branches, setBranches] = useState(["All Branches"]);
+
+    const [ledger, setLedger] = useState<any[]>([]);
+    const [elapsedDays, setElapsedDays] = useState<number | null>(null);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, selectedBranch, statusFilter]);
+
+    // ── Fetch data from backend ──
+    const loadLedger = async () => {
+        setLoading(true);
+        try {
+            const data = await apiGet<{ cycle: any; rows: any[] }>("/payroll/ledger");
+            setLedger(data.rows || []);
+            if (data.cycle) {
+                setCycleId(data.cycle.id);
+                setGlobalRules(prev => ({ ...prev, cycle: `${data.cycle.month} ${data.cycle.year}` }));
+                if (data.cycle.elapsedDays) setElapsedDays(data.cycle.elapsedDays);
+            }
+            // Extract unique branches
+            const br = [...new Set((data.rows || []).map((r: any) => r.location).filter(Boolean))] as string[];
+            setBranches(["All Branches", ...br]);
+        } catch (e) {
+            console.error("Failed to load payroll ledger:", e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadPastCycles = async () => {
+        try {
+            const data = await apiGetPaginated<any>("/payroll/history", { limit: 3 });
+            const items = (data.data || []).map((item: any) => ({
+                month: item.month,
+                totalPayout: `₹${(item.totalPayout || 0).toLocaleString()}`,
+                employees: item.staff || 0,
+                date: item.paid_on ? new Date(item.paid_on).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—',
+            }));
+            setPastCycles(items);
+        } catch (e) {
+            console.error("Failed to load past cycles:", e);
+        }
+    };
+
+    useEffect(() => {
+        loadLedger();
+        loadPastCycles();
+    }, []);
+
+    const calculateProductionNet = (row: any) => {
+        // Prefer backend pre-calculated values (backend handles pro-rating & live attendance sync)
+        if (row.net !== undefined && row.net !== null) {
+            return {
+                basic: row.basic ?? 0,
+                hra: row.hra ?? 0,
+                other: row.other ?? 0,
+                proratedGross: row.proratedGross ?? 0,
+                totalEarnings: row.totalEarnings ?? 0,
+                pf: row.pf ?? 0,
+                esi: row.esi ?? 0,
+                pt: row.pt ?? 0,
+                grossDeductions: row.grossDeductions ?? 0,
+                net: row.net ?? 0,
+                pfEmployer: row.pfEmployer ?? 0,
+                esiEmployer: row.esiEmployer ?? 0,
+                totalMonthlyCTC: row.totalMonthlyCTC ?? 0,
+            };
+        }
+
+        // Fallback: client-side formula (used if backend values not yet available)
+        const daysInMonth = 28;
+        const payableDays = Math.max(0, daysInMonth - (row.absentDays || 0));
+
+        // Fixed Structure
+        const fixedBasic = Math.round(row.fixedGross * 0.40);
+        const fixedHra = Math.round(fixedBasic * 0.40);
+        const fixedOther = row.fixedGross - fixedBasic - fixedHra;
+
+        // Prorated Structure
+        const basic = Math.round((fixedBasic / daysInMonth) * payableDays);
+        const hra = Math.round((fixedHra / daysInMonth) * payableDays);
+        const other = Math.round((fixedOther / daysInMonth) * payableDays);
+
+        const proratedGross = basic + hra + other;
+        const totalEarnings = proratedGross + (row.previousArrears || 0) + (row.bonus || 0) + (row.incentive || 0);
+
+        // Deductions
+        let pf = 0;
+        if (row.pfApplicable) {
+            const pfBasic = row.pfCeiling ? Math.min(basic, 15000) : basic;
+            pf = Math.round(pfBasic * 0.12);
+        }
+
+        let esi = 0;
+        if (row.esicApplicable) {
+            esi = Math.ceil(totalEarnings * 0.0075);
+        }
+
+        let pt = 0;
+        if (proratedGross > 33333) pt = 208;
+        else if (proratedGross > 25000) pt = 167;
+        else if (proratedGross > 15000) pt = 125;
+
+        const grossDeductions = pf + esi + pt + (row.loanDeduction || 0) + (row.otherDeduction || 0);
+        const net = totalEarnings - grossDeductions;
+
+        // Employer Contribution
+        const pfEmployer = pf;
+        const esiEmployer = row.esicApplicable ? Math.ceil(totalEarnings * 0.0325) : 0;
+        const totalMonthlyCTC = totalEarnings + pfEmployer + esiEmployer;
+
+        return {
+            basic, hra, other, proratedGross, totalEarnings,
+            pf, esi, pt, grossDeductions, net,
+            pfEmployer, esiEmployer, totalMonthlyCTC
+        };
+    };
+
+    const calculateNet = (row: any) => calculateProductionNet(row).net;
+
+    const handleSalaryUpdate = async (id: number, field: string, value: any) => {
+        setLedger(prev => prev.map(emp => emp.id === id ? { ...emp, [field]: value } : emp));
+        try {
+            await apiPatch(`/payroll/entry/${id}`, { [field]: value });
+        } catch (e) {
+            console.error("Failed to update entry:", e);
+        }
+    };
+
+    const handleExportExcel = () => {
+        const rows = ledger.map(emp => {
+            const res = calculateProductionNet(emp);
+            const daysInMonth = 28;
+            const payable = daysInMonth - emp.absentDays;
+            return {
+                "Employee Code": emp.employeeCode,
+                "Employee Name": emp.name,
+                "Location": emp.location,
+                "Company": emp.company,
+                "Gross Salary": emp.fixedGross,
+                "Designation": emp.designation,
+                "PF Applicable": emp.pfApplicable ? "Yes" : "No",
+                "PF Ceiling": emp.pfCeiling ? "Yes" : "No",
+                "ESIC Applicable": emp.esicApplicable ? "Yes" : "No",
+                "Days In Month": daysInMonth,
+                "Payable Days": payable,
+                "Absent Days": emp.absentDays,
+                "Basic": res.basic,
+                "HRA": res.hra,
+                "Other Allowance": res.other,
+                "Previous Month Arrears": emp.previousArrears,
+                "Bonus": emp.bonus,
+                "Incentive": emp.incentive,
+                "Gross Earnings": res.totalEarnings,
+                "Provident Fund": res.pf,
+                "ESIC": res.esi,
+                "Professional Tax": res.pt,
+                "Advance/Loan/TDS": emp.loanDeduction || 0,
+                "Other Deduction": emp.otherDeduction || 0,
+                "Gross Deductions": res.grossDeductions,
+                "Net Salary": res.net,
+                "PF Employer": res.pfEmployer,
+                "ESIC Employer": res.esiEmployer,
+                "Total Monthly CTC": res.totalMonthlyCTC
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Payroll Data");
+        XLSX.writeFile(workbook, `Payroll_Export_${globalRules.cycle.replace(" ", "_")}.xlsx`);
+    };
+
+    const filteredLedger = ledger.filter(emp => {
+        const matchesBranch = selectedBranch === "All Branches" || emp.location === selectedBranch;
+        const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || emp.employeeCode.toString().includes(searchQuery);
+        const matchesStatus = statusFilter === "ALL" || emp.status === statusFilter;
+        return matchesBranch && matchesSearch && matchesStatus;
+    });
+
+    const totalPages = Math.ceil(filteredLedger.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedLedger = filteredLedger.slice(startIndex, startIndex + itemsPerPage);
+
+    const toggleRow = (id: number) => {
+        setSelectedRows(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    };
+
+    const handleBulkPay = async () => {
+        try {
+            await Promise.all(
+                selectedRows.map(id => apiPatch(`/payroll/entry/${id}/status`, { status: "Paid" }))
+            );
+            setLedger(prev => prev.map(emp => selectedRows.includes(emp.id) ? { ...emp, status: "Paid" } : emp));
+            setSelectedRows([]);
+        } catch (e) {
+            console.error("Failed to bulk mark as paid:", e);
+        }
+    };
+
+    const handleDisburseAll = async () => {
+        if (!cycleId) return;
+        try {
+            await apiPost(`/payroll/disburse/${cycleId}`, {
+                mode: txDetails.mode,
+                reference: txDetails.reference,
+                authorizedBy: txDetails.authorizedBy,
+                remarks: txDetails.remarks,
+            });
+            setIsSendDialogOpen(false);
+            setDisbursementStep(1);
+            await loadLedger();
+            await loadPastCycles();
+        } catch (e) {
+            console.error("Failed to disburse cycle:", e);
+        }
+    };
+
+    const generatePayslip = (row: any) => {
+        const doc = new jsPDF();
+        const pNet = calculateProductionNet(row);
+
+        // Branding
+        doc.setFontSize(22);
+        doc.setTextColor(15, 23, 42); // slate-900
+        doc.text("NODE HRMS", 20, 25);
+        doc.setFontSize(10);
+        doc.setTextColor(148, 163, 184); // slate-400
+        doc.text(`P AY R O L L   S L I P   •   ${globalRules.cycle}`, 20, 32);
+
+        // Employee Info
+        doc.setFontSize(12);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`Employee: ${row.name} (${row.employeeCode})`, 20, 50);
+        doc.text(`Designation: ${row.designation}`, 20, 57);
+        doc.text(`Location: ${row.location} | Company: ${row.company}`, 20, 64);
+
+        // Table
+        autoTable(doc, {
+            startY: 75,
+            head: [['Description', 'Earnings', 'Deductions']],
+            body: [
+                ['Basic Salary', `Rs. ${pNet.basic.toLocaleString()}`, '-'],
+                ['HRA', `Rs. ${pNet.hra.toLocaleString()}`, '-'],
+                ['Other Allowances', `Rs. ${pNet.other.toLocaleString()}`, '-'],
+                ['Bonus / Arrears', `Rs. ${(row.bonus + row.previousArrears).toLocaleString()}`, '-'],
+                ['Provident Fund (PF)', '-', `Rs. ${pNet.pf.toLocaleString()}`],
+                ['Professional Tax (PT)', '-', `Rs. ${pNet.pt.toLocaleString()}`],
+                ['ESI (Employees State Insurance)', '-', `Rs. ${pNet.esi.toLocaleString()}`],
+                ['Loan/Advance Deduction', '-', `Rs. ${row.loanDeduction.toLocaleString()}`],
+            ],
+            theme: 'striped',
+            headStyles: { fillColor: [15, 23, 42], fontSize: 10 },
+            styles: { fontSize: 9 },
+            foot: [['TOTAL', `Rs. ${pNet.totalEarnings.toLocaleString()}`, `Rs. ${pNet.grossDeductions.toLocaleString()}`]],
+            footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold' }
+        });
+
+        const finalY = (doc as any).lastAutoTable.finalY || 150;
+
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text(`NET PAYABLE: Rs. ${pNet.net.toLocaleString()}`, 20, finalY + 20);
+
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(148, 163, 184);
+        doc.text("Note: This is a computer-generated document and does not require a signature.", 20, finalY + 40);
+
+        doc.save(`${row.name.replace(" ", "_")}_Payslip_${globalRules.cycle.replace(" ", "")}.pdf`);
+    };
+
+    return (
+        <ProtectedRoute module="PAYROLL" action="READ">
+            <div className="space-y-10 pb-20">
+                {/* Header */}
+                <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between px-2">
+                    <div>
+                        <h1 className="text-xl font-black text-slate-900 flex items-center gap-3 italic uppercase tracking-tighter underline underline-offset-4 decoration-[#D9F99D] decoration-2">
+                            <Wallet className="h-6 w-6 text-indigo-400 stroke-[2.5]" /> Salary Payments
+                        </h1>
+                        <div className="flex items-center gap-3 mt-4">
+                            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.4em]">Payment Records • Salary Processing</p>
+                            {elapsedDays && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[8px] font-black uppercase tracking-widest border border-amber-200">
+                                    <Clock className="h-2.5 w-2.5" /> Pro-rated · Day {elapsedDays}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+
+
+                        <Link href="/payroll/analytics">
+                            <Button
+                                variant="outline"
+                                className="h-10 px-6 rounded-xl border-2 border-slate-50 font-black uppercase text-[9px] tracking-widest text-slate-400 transition-all hover:bg-slate-50"
+                            >
+                                <PieChart className="h-4 w-4 mr-2" /> Analytics
+                            </Button>
+                        </Link>
+                        <Link href="/payroll/history">
+                            <Button
+                                variant="outline"
+                                className="h-10 px-6 rounded-xl border-2 border-slate-50 font-black uppercase text-[9px] tracking-widest text-slate-400 transition-all hover:bg-slate-50"
+                            >
+                                <History className="h-4 w-4 mr-2" /> Global History
+                            </Button>
+                        </Link>
+                        <Button
+                            onClick={() => setIsSendDialogOpen(true)}
+                            className="bg-[#D9F99D] text-slate-900 hover:bg-[#c8ea8a] font-black uppercase text-[9px] tracking-[0.3em] px-8 h-11 rounded-2xl  hover:translate-y-[-2px] transition-all"
+                        >
+                            Finalize Disbursement <ArrowUpRight className="h-4 w-4 ml-2" />
+                        </Button>
+                    </div>
+                </div>
+
+
+
+                {/* Smart Search & Advanced Filters */}
+                <div className="flex flex-col md:flex-row items-center gap-4 bg-white/50 p-2 rounded-3xl backdrop-blur-sm border border-slate-50">
+                    <div className="relative flex-1 group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                        <Input
+                            placeholder="Search employee by name, ID or node..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="h-12 w-full pl-12 rounded-2xl bg-white border-none shadow-sm font-bold text-[11px] focus:ring-2 ring-indigo-100"
+                        />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                            <SelectTrigger className="h-12 w-[180px] rounded-xl border-2 border-slate-50 font-black uppercase text-[9px] tracking-widest text-slate-900 bg-white shadow-sm">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="border-none shadow-2xl rounded-2xl">
+                                {branches.map(b => (
+                                    <SelectItem key={b} value={b} className="font-bold text-[10px] uppercase">{b}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="h-12 w-[160px] rounded-2xl bg-white border-none shadow-sm font-black text-[9px] uppercase tracking-widest">
+                                <Filter className="h-3.5 w-3.5 mr-2 text-slate-400" /> <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="border-none shadow-xl rounded-2xl">
+                                <SelectItem value="ALL" className="text-[10px] font-bold uppercase">All Status</SelectItem>
+                                <SelectItem value="Verified" className="text-[10px] font-bold uppercase">Verified</SelectItem>
+                                <SelectItem value="Pending Audit" className="text-[10px] font-bold uppercase">Pending Audit</SelectItem>
+                                <SelectItem value="Paid" className="text-[10px] font-bold uppercase">Paid Records</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            variant="outline"
+                            onClick={handleExportExcel}
+                            className="h-12 px-6 rounded-2xl bg-white border-none shadow-sm font-black text-[9px] uppercase tracking-widest text-slate-900"
+                        >
+                            <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-500" /> Export Excel
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Selected Batch Actions */}
+                {selectedRows.length > 0 && (
+                    <div className="bg-indigo-600 p-4 rounded-2xl flex items-center justify-between animate-in slide-in-from-top-4 duration-300">
+                        <p className="text-white text-[10px] font-black uppercase tracking-widest">
+                            {selectedRows.length} Employees Selected for Batch Action
+                        </p>
+                        <div className="flex gap-2">
+                            <Button onClick={handleBulkPay} className="h-9 rounded-xl bg-white text-indigo-600 font-black text-[9px] uppercase tracking-widest px-6 hover:bg-indigo-50">Mark as Paid</Button>
+                            <Button onClick={() => setSelectedRows([])} variant="ghost" className="h-9 rounded-xl text-white font-black text-[9px] uppercase tracking-widest hover:bg-white/10">Cancel</Button>
+                        </div>
+                    </div>
+                )}
+
+
+
+                {/* Active Ledger */}
+                <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden p-1">
+                    <CardHeader className="p-6 pb-3 border-none">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <CardTitle className="text-lg font-black italic text-slate-900 underline underline-offset-4 decoration-[#D9F99D] decoration-2 uppercase tracking-tighter">Monthly Salary List</CardTitle>
+                                <CardDescription className="text-[8px] font-black text-slate-400 mt-4 uppercase tracking-[0.3em] italic">Branch salary details</CardDescription>
+                            </div>
+                            <Badge className="bg-slate-900 text-white border-none font-black text-[8px] tracking-[0.2em] px-4 py-2 rounded-xl uppercase">Cycle: FEB 2026</Badge>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="mt-4">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="border-none hover:bg-transparent">
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400 pl-6">Employee Details</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Prorated Gross</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Deductions</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Statutory</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Net Payable</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400">Status</TableHead>
+                                    <TableHead className="text-[10px] font-black uppercase tracking-widest text-slate-400 text-left">Actions</TableHead>
+                                    <TableHead className="text-right pr-6 w-[60px]">
+                                        <Checkbox
+                                            checked={selectedRows.length === filteredLedger.length && filteredLedger.length > 0}
+                                            onCheckedChange={(checked) => {
+                                                if (checked) setSelectedRows(filteredLedger.map(e => e.id));
+                                                else setSelectedRows([]);
+                                            }}
+                                            className="border-slate-300 data-[state=checked]:bg-slate-900 data-[state=checked]:border-slate-900 transition-all shadow-sm rounded-full h-4 w-4 cursor-pointer hover:border-slate-400 inline-block"
+                                        />
+                                    </TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {paginatedLedger.map((row) => {
+                                    const pNet = calculateProductionNet(row);
+                                    return (
+                                        <TableRow
+                                            key={row.id}
+                                            className={cn(
+                                                "group border-none transition-all h-20 border-b border-dashed border-slate-50 last:border-none relative",
+                                                selectedRows.includes(row.id)
+                                                    ? "bg-slate-50/80 hover:bg-slate-50"
+                                                    : "hover:bg-slate-50/50"
+                                            )}
+                                        >
+                                            <TableCell className="pl-6 relative">
+                                                {/* Premium left indicator line */}
+                                                {selectedRows.includes(row.id) && (
+                                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-slate-900 rounded-r" />
+                                                )}
+                                                <div className="flex flex-col">
+                                                    <p className="text-sm font-black text-slate-900 italic tracking-tight uppercase group-hover:translate-x-1 transition-transform">{row.name}</p>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                        <Badge className="bg-slate-50 text-slate-400 border-none font-black text-[7px] h-4 px-1.5 rounded uppercase tracking-widest">{row.designation}</Badge>
+                                                        <Badge className="bg-indigo-50 text-indigo-500 border-none font-black text-[7px] h-4 px-1.5 rounded uppercase tracking-widest">{row.location}</Badge>
+                                                        <span className="text-[7px] font-bold text-rose-500 uppercase tracking-widest">{row.absentDays > 0 ? `${row.absentDays} LWP` : 'Full Present'}</span>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-xs font-black text-slate-900">
+                                                <div className="flex flex-col">
+                                                    <span>₹{pNet.totalEarnings.toLocaleString()}</span>
+                                                    <span className="text-[7px] font-bold text-slate-400 uppercase tracking-widest">Base CTC: ₹{row.fixedGross.toLocaleString()}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-[10px] font-bold text-slate-600">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <span className="text-rose-500 font-black">₹{pNet.grossDeductions.toLocaleString()}</span>
+                                                    <span className="text-[7px] uppercase tracking-widest text-slate-400">Total Deducted</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-1">
+                                                    {row.pfApplicable && <Badge className="bg-slate-900 text-white border-none font-black text-[7px] h-5 px-2 rounded-md uppercase tracking-widest">PF</Badge>}
+                                                    {row.esicApplicable && <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[7px] h-5 px-2 rounded-md uppercase tracking-widest">ESI</Badge>}
+                                                    {!row.pfApplicable && !row.esicApplicable && <Badge className="bg-slate-50 text-slate-400 border-none font-black text-[7px] h-5 px-2 rounded-md uppercase tracking-widest">NONE</Badge>}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-xs font-black text-emerald-600 italic">₹{pNet.net.toLocaleString()}</TableCell>
+                                            <TableCell>
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <button className="focus:outline-none">
+                                                            <Badge className={cn(
+                                                                "border-none font-black text-[8px] uppercase tracking-widest px-3 h-6 rounded-lg shadow-sm cursor-pointer hover:opacity-80 transition-opacity",
+                                                                row.status === 'Paid' ? 'bg-[#D1FAE5] text-emerald-600' :
+                                                                    row.status === 'Verified' ? 'bg-blue-50 text-blue-600' :
+                                                                        row.status === 'Pending Audit' ? 'bg-purple-50 text-purple-600' : 'bg-[#FEF3C7] text-amber-600'
+                                                            )}>
+                                                                {row.status}
+                                                            </Badge>
+                                                        </button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent className="border-none shadow-xl rounded-xl">
+                                                        <DropdownMenuItem
+                                                            className="text-[9px] font-black uppercase tracking-widest text-amber-600 hover:bg-amber-50 cursor-pointer"
+                                                            onClick={() => handleSalaryUpdate(row.id, 'status', 'Draft')}
+                                                        >
+                                                            Draft
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            className="text-[9px] font-black uppercase tracking-widest text-purple-600 hover:bg-purple-50 cursor-pointer"
+                                                            onClick={() => handleSalaryUpdate(row.id, 'status', 'Pending Audit')}
+                                                        >
+                                                            Pending Audit
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            className="text-[9px] font-black uppercase tracking-widest text-blue-600 hover:bg-blue-50 cursor-pointer"
+                                                            onClick={() => handleSalaryUpdate(row.id, 'status', 'Verified')}
+                                                        >
+                                                            Verified
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            className="text-[9px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 cursor-pointer"
+                                                            onClick={() => handleSalaryUpdate(row.id, 'status', 'Paid')}
+                                                        >
+                                                            Paid
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                            <TableCell className="text-left w-[120px]">
+                                                <div className="flex items-center justify-start gap-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-8 w-8 rounded-lg border-slate-100 p-0 hover:bg-slate-50"
+                                                        onClick={() => {
+                                                            setSelectedEmployee(row);
+                                                            setIsConfigOpen(true);
+                                                        }}
+                                                    >
+                                                        <LayoutList className="h-4 w-4 text-slate-400" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="h-8 w-8 rounded-lg border-slate-100 p-0 hover:bg-slate-50"
+                                                        onClick={() => {
+                                                            setSelectedEmployee(row);
+                                                            setIsHistoryOpen(true);
+                                                        }}
+                                                    >
+                                                        <History className="h-4 w-4 text-slate-400" />
+                                                    </Button>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => generatePayslip(row)}
+                                                        className="h-8 rounded-lg border-slate-100 font-black uppercase text-[7px] tracking-widest px-3 hover:bg-[#D9F99D] hover:text-slate-900 hover:border-[#D9F99D] transition-all"
+                                                    >
+                                                        <Download className="h-3 w-3 mr-1.5" /> PDF
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right pr-6 w-[60px]">
+                                                <Checkbox
+                                                    checked={selectedRows.includes(row.id)}
+                                                    onCheckedChange={() => toggleRow(row.id)}
+                                                    className="border-slate-300 data-[state=checked]:bg-slate-900 data-[state=checked]:border-slate-900 transition-all shadow-sm rounded-full h-4 w-4 cursor-pointer hover:border-slate-400 inline-block"
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                })}
+                            </TableBody>
+                        </Table>
+
+                        {/* Pagination Controls */}
+                        {totalPages > 1 && (
+                            <div className="flex items-center justify-between mt-6 px-6 py-4 border-t border-slate-100 bg-slate-50/30">
+                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                    Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredLedger.length)} of {filteredLedger.length} Employees
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                        disabled={currentPage === 1}
+                                        className="h-8 w-8 rounded-lg border-slate-100 p-0 hover:bg-slate-50 disabled:opacity-40"
+                                    >
+                                        <ChevronLeft className="h-4 w-4 text-slate-600" />
+                                    </Button>
+                                    <span className="text-[10px] font-black text-slate-900 mx-2 uppercase tracking-widest">
+                                        Page {currentPage} of {totalPages}
+                                    </span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                        disabled={currentPage === totalPages}
+                                        className="h-8 w-8 rounded-lg border-slate-100 p-0 hover:bg-slate-50 disabled:opacity-40"
+                                    >
+                                        <ChevronRight className="h-4 w-4 text-slate-600" />
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+
+                {/* Exported Modals */}
+                <GlobalRulesSheet
+                    isOpen={isConfigOpen}
+                    onOpenChange={setIsConfigOpen}
+                    selectedEmployee={selectedEmployee}
+                    setSelectedEmployee={setSelectedEmployee}
+                    globalRules={globalRules}
+                    setGlobalRules={setGlobalRules}
+                    handleSalaryUpdate={handleSalaryUpdate}
+                    calculateProductionNet={calculateProductionNet}
+                />
+
+                <DisbursementDialog
+                    isOpen={isSendDialogOpen}
+                    onOpenChange={setIsSendDialogOpen}
+                    disbursementStep={disbursementStep}
+                    setDisbursementStep={setDisbursementStep}
+                    txDetails={txDetails}
+                    setTxDetails={setTxDetails}
+                    ledger={ledger}
+                    calculateProductionNet={calculateProductionNet}
+                    handleDisburseAll={handleDisburseAll}
+                />
+
+                <EmployeeHistoryDialog
+                    isOpen={isHistoryOpen}
+                    onOpenChange={setIsHistoryOpen}
+                    selectedEmployee={selectedEmployee}
+                />
+
+
+                {/* Floating Batch Action Bar */}
+                {selectedRows.length > 0 && (
+                    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-10 duration-500">
+                        <div className="bg-slate-900 shadow-2xl rounded-3xl p-3 flex items-center gap-6 border border-white/10 backdrop-blur-xl">
+                            <div className="pl-4 pr-6 border-r border-white/10">
+                                <p className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em] mb-0.5">Selected</p>
+                                <h5 className="text-sm font-black italic text-[#D9F99D] tracking-tighter uppercase">{selectedRows.length} Employees</h5>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <Button
+                                    onClick={handleBulkPay}
+                                    className="h-10 rounded-xl bg-white text-slate-900 font-black uppercase text-[8px] tracking-widest px-6 hover:bg-[#D9F99D] transition-all"
+                                >
+                                    <CheckCircle2 className="h-3.5 w-3.5 mr-2" /> Mark as Paid
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    className="h-10 rounded-xl bg-white/5 border-white/10 text-white font-black uppercase text-[8px] tracking-widest px-6 hover:bg-white/10 transition-all"
+                                >
+                                    <Download className="h-3.5 w-3.5 mr-2" /> Download All
+                                </Button>
+                                <Button
+                                    onClick={() => setSelectedRows([])}
+                                    variant="ghost"
+                                    className="h-10 rounded-xl text-slate-400 font-black uppercase text-[8px] tracking-widest px-4 hover:text-white"
+                                >
+                                    Clear
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </ProtectedRoute>
+    );
+}
+

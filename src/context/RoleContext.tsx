@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 export type CRUDAction = 'CREATE' | 'READ' | 'UPDATE' | 'DELETE';
 
@@ -11,6 +12,7 @@ export const MODULES = [
   'PAYROLL',
   'LOANS',
   'LEAVE',
+  'PERFORMANCE',
   'LOCATIONS',
   'LETTERS',
   'TOUR_EXPENSES',
@@ -26,7 +28,7 @@ interface RoleDefinition {
   permissions: Record<ModuleName, CRUDAction[]>;
 }
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
@@ -58,7 +60,7 @@ const initialRoles: RoleDefinition[] = [
     permissions: {
       DASHBOARD: FULL_CRUD, EMPLOYEES: FULL_CRUD, ATTENDANCE: FULL_CRUD, PAYROLL: FULL_CRUD, LOANS: FULL_CRUD,
       LEAVE: FULL_CRUD, LOCATIONS: FULL_CRUD, LETTERS: FULL_CRUD, TOUR_EXPENSES: FULL_CRUD,
-      REPORTS: FULL_CRUD, SETTINGS: FULL_CRUD, ROLE_MGMT: FULL_CRUD
+      REPORTS: FULL_CRUD, SETTINGS: FULL_CRUD, ROLE_MGMT: FULL_CRUD, PERFORMANCE: FULL_CRUD
     }
   },
   {
@@ -66,7 +68,7 @@ const initialRoles: RoleDefinition[] = [
     permissions: {
       DASHBOARD: FULL_CRUD, EMPLOYEES: FULL_CRUD, ATTENDANCE: FULL_CRUD, PAYROLL: FULL_CRUD, LOANS: FULL_CRUD,
       LEAVE: FULL_CRUD, LOCATIONS: FULL_CRUD, LETTERS: FULL_CRUD, TOUR_EXPENSES: FULL_CRUD,
-      REPORTS: FULL_CRUD, SETTINGS: FULL_CRUD, ROLE_MGMT: NO_ACCESS
+      REPORTS: FULL_CRUD, SETTINGS: FULL_CRUD, ROLE_MGMT: NO_ACCESS, PERFORMANCE: FULL_CRUD
     }
   },
   {
@@ -74,7 +76,7 @@ const initialRoles: RoleDefinition[] = [
     permissions: {
       DASHBOARD: READ_ONLY, EMPLOYEES: ['READ', 'UPDATE'], ATTENDANCE: FULL_CRUD, PAYROLL: NO_ACCESS, LOANS: READ_ONLY,
       LEAVE: FULL_CRUD, LOCATIONS: READ_ONLY, LETTERS: NO_ACCESS, TOUR_EXPENSES: FULL_CRUD,
-      REPORTS: READ_ONLY, SETTINGS: READ_ONLY, ROLE_MGMT: NO_ACCESS
+      REPORTS: READ_ONLY, SETTINGS: READ_ONLY, ROLE_MGMT: NO_ACCESS, PERFORMANCE: FULL_CRUD
     }
   },
   {
@@ -82,20 +84,16 @@ const initialRoles: RoleDefinition[] = [
     permissions: {
       DASHBOARD: READ_ONLY, EMPLOYEES: NO_ACCESS, ATTENDANCE: READ_ONLY, PAYROLL: NO_ACCESS, LOANS: READ_ONLY,
       LEAVE: READ_ONLY, LOCATIONS: NO_ACCESS, LETTERS: NO_ACCESS, TOUR_EXPENSES: READ_ONLY,
-      REPORTS: NO_ACCESS, SETTINGS: READ_ONLY, ROLE_MGMT: NO_ACCESS
+      REPORTS: NO_ACCESS, SETTINGS: READ_ONLY, ROLE_MGMT: NO_ACCESS, PERFORMANCE: READ_ONLY
     }
   }
 ];
 
-const mockUser: User = {
-  id: 'USR001',
-  name: 'John Doe',
-  email: 'john.doe@hrms.io',
-  role: 'SUPER_ADMIN',
-};
-
 export const RoleProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(mockUser);
+  // Consume user from AuthContext instead of maintaining our own mock user
+  const auth = useAuth();
+  const user = auth.user;
+
   const [availableRoles, setAvailableRoles] = useState<RoleDefinition[]>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('hrms_roles_crud');
@@ -123,8 +121,11 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('hrms_roles_crud', JSON.stringify(availableRoles));
   }, [availableRoles]);
 
-  const setRole = (newRole: string) => {
-    if (user) setUser({ ...user, role: newRole });
+  // setRole is now a no-op for dev mode role switching — the real role
+  // comes from AuthContext. Kept for backward compatibility with the
+  // Sidebar's dev role dropdown (will be replaced in Phase 4).
+  const setRole = (_newRole: string) => {
+    // Intentionally no-op: role is controlled by AuthContext
   };
 
   const hasPermission = (module: ModuleName, action: CRUDAction) => {
@@ -141,7 +142,7 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
     if (roleName === 'SUPER_ADMIN') {
       permissions.ROLE_MGMT = FULL_CRUD;
     }
-    setAvailableRoles(prev => prev.map(r => 
+    setAvailableRoles(prev => prev.map(r =>
       r.name === roleName ? { ...r, permissions } : r
     ));
   };
@@ -157,9 +158,9 @@ export const RoleProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <RoleContext.Provider value={{ 
-      user, role: user?.role || 'EMPLOYEE', availableRoles, 
-      setRole, hasPermission, updateRolePermissions, createRole, deleteRole 
+    <RoleContext.Provider value={{
+      user, role: user?.role || 'EMPLOYEE', availableRoles,
+      setRole, hasPermission, updateRolePermissions, createRole, deleteRole
     }}>
       {children}
     </RoleContext.Provider>

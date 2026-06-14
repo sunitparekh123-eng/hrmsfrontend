@@ -254,14 +254,14 @@ export function DisbursementDialog({
                             <div className="grid grid-cols-2 gap-6 text-left relative z-10">
                                 <div>
                                     <p className="text-[8px] font-black uppercase text-slate-500 tracking-[0.2em] mb-2">Total Gross</p>
-                                    <p className="text-xl font-black italic text-white tracking-tighter">₹{ledger.reduce((acc: any, curr: any) => acc + calculateProductionNet(curr).gross, 0).toLocaleString()}</p>
+                                    <p className="text-xl font-black italic text-white tracking-tighter">₹{ledger.reduce((acc: any, curr: any) => acc + calculateProductionNet(curr).totalEarnings, 0).toLocaleString()}</p>
                                 </div>
                                 <div className="text-right border-l border-white/10 pl-6">
                                     <p className="text-[8px] font-black uppercase text-rose-400 tracking-[0.2em] mb-2">Deductions</p>
                                     <p className="text-xl font-black italic text-rose-500 tracking-tighter">
                                         -₹{ledger.reduce((acc: any, curr: any) => {
                                             const res = calculateProductionNet(curr);
-                                            return acc + res.pf + res.pt + res.esi + res.lop;
+                                            return acc + res.pf + res.pt + res.esi;
                                         }, 0).toLocaleString()}
                                     </p>
                                 </div>
