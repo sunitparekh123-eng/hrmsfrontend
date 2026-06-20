@@ -161,22 +161,23 @@ const EMPTY_FORM: Record<string, string> = {
     state: "",
     latitude: "",
     longitude: "",
-    radius_meters: "200",
+    radius_meters: "50",
     contact_person: "",
     contact_phone: "",
     is_active: "true",
 };
 
 const RADIUS_OPTIONS = [
-    { value: "50", label: "50 meters" },
-    { value: "100", label: "100 meters" },
-    { value: "150", label: "150 meters" },
-    { value: "200", label: "200 meters (Default)" },
-    { value: "300", label: "300 meters" },
-    { value: "500", label: "500 meters" },
-    { value: "1000", label: "1 km" },
-    { value: "2000", label: "2 km" },
-    { value: "5000", label: "5 km" },
+    { value: "10", label: "10 meters" },
+    { value: "20", label: "20 meters" },
+    { value: "30", label: "30 meters" },
+    { value: "40", label: "40 meters" },
+    { value: "50", label: "50 meters (Default)" },
+    { value: "60", label: "60 meters" },
+    { value: "70", label: "70 meters" },
+    { value: "80", label: "80 meters" },
+    { value: "90", label: "90 meters" },
+    { value: "100", label: "100 meters (Max)" },
 ];
 
 // ──────────────────────────────────────────────────────────────
@@ -269,7 +270,7 @@ export default function LocationsPage() {
 
     // ── Company management state ────────────────────────────
     const [companySheetOpen, setCompanySheetOpen] = useState(false);
-    const [companyForm, setCompanyForm] = useState({ name: "", address: "" });
+    const [companyForm, setCompanyForm] = useState({ name: "", email: "", phone: "", website: "", city: "", state: "", address: "" });
     const [companyEditingId, setCompanyEditingId] = useState<number | null>(null);
     const [companySaving, setCompanySaving] = useState(false);
     const [companyDeleteTarget, setCompanyDeleteTarget] = useState<CompanyRecord | null>(null);
@@ -427,8 +428,8 @@ export default function LocationsPage() {
         if (!form.name?.trim()) errs.name = "Name is required";
         if (!form.latitude || isNaN(Number(form.latitude))) errs.latitude = "Valid latitude required";
         if (!form.longitude || isNaN(Number(form.longitude))) errs.longitude = "Valid longitude required";
-        if (!form.radius_meters || Number(form.radius_meters) < 10 || Number(form.radius_meters) > 5000) {
-            errs.radius_meters = "Radius must be 10–5000 meters";
+        if (!form.radius_meters || Number(form.radius_meters) < 10 || Number(form.radius_meters) > 100) {
+            errs.radius_meters = "Radius must be 10–100 meters";
         }
 
         const lat = Number(form.latitude);
@@ -514,13 +515,21 @@ export default function LocationsPage() {
 
     const openCompanyCreateSheet = () => {
         setCompanyEditingId(null);
-        setCompanyForm({ name: "", address: "" });
+        setCompanyForm({ name: "", email: "", phone: "", website: "", city: "", state: "", address: "" });
         setCompanySheetOpen(true);
     };
 
-    const openCompanyEditSheet = (company: CompanyRecord) => {
+    const openCompanyEditSheet = (company: any) => {
         setCompanyEditingId(company.id);
-        setCompanyForm({ name: company.name, address: company.address || "" });
+        setCompanyForm({ 
+            name: company.name, 
+            email: company.email || "",
+            phone: company.phone || "",
+            website: company.website || "",
+            city: company.city || "",
+            state: company.state || "",
+            address: company.address || "" 
+        });
         setCompanySheetOpen(true);
     };
 
@@ -531,17 +540,21 @@ export default function LocationsPage() {
         }
         setCompanySaving(true);
         try {
+            const payload = {
+                name: companyForm.name.trim(),
+                email: companyForm.email?.trim() || null,
+                phone: companyForm.phone?.trim() || null,
+                website: companyForm.website?.trim() || null,
+                city: companyForm.city?.trim() || null,
+                state: companyForm.state?.trim() || null,
+                address: companyForm.address?.trim() || null,
+            };
+
             if (companyEditingId) {
-                await apiPut(`/companies/${companyEditingId}`, {
-                    name: companyForm.name.trim(),
-                    address: companyForm.address?.trim() || null,
-                });
+                await apiPut(`/companies/${companyEditingId}`, payload);
                 setToast({ text: "Company updated successfully", variant: "success" });
             } else {
-                await apiPost("/companies", {
-                    name: companyForm.name.trim(),
-                    address: companyForm.address?.trim() || null,
-                });
+                await apiPost("/companies", payload);
                 setToast({ text: "Company created successfully", variant: "success" });
             }
             setCompanySheetOpen(false);
@@ -635,24 +648,24 @@ export default function LocationsPage() {
             )}
 
             {/* ── Header ───────────────────────────────────── */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2 pt-4">
                 <div>
-                    <h1 className="text-2xl font-black text-slate-900 uppercase italic tracking-tighter">
+                    <h1 className="text-2xl font-black text-slate-900 italic uppercase tracking-tighter underline underline-offset-8 decoration-[#D9F99D] decoration-4">
                         Locations & Geo-Fence
                     </h1>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest pt-1">
+                    <p className="text-[10px] font-bold text-slate-400 mt-4 uppercase tracking-[0.2em]">
                         Manage branches, assign companies & configure geo-fencing radius
                     </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     {isAdmin && (
                         <Button
                             variant="outline"
                             onClick={openCompanyCreateSheet}
-                            className="font-black uppercase text-[9px] tracking-widest rounded-2xl h-11 px-5 border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm"
+                            className="border-slate-200 text-slate-600 hover:bg-slate-50 font-black uppercase text-[10px] tracking-widest px-6 h-12 rounded-xl shadow-sm transition-all flex items-center gap-2"
                         >
-                            <Building2 className="h-4 w-4 mr-2" />
+                            <Building2 className="h-4 w-4" />
                             Manage Companies
                         </Button>
                     )}
@@ -661,10 +674,9 @@ export default function LocationsPage() {
                             <SheetTrigger asChild>
                                 <Button
                                     onClick={openCreateSheet}
-                                    className="bg-slate-900 text-white hover:bg-slate-800 font-black uppercase text-[9px] tracking-widest rounded-2xl h-11 px-6 shadow-lg transition-all hover:translate-y-[-2px]"
+                                    className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[10px] tracking-widest px-8 h-12 rounded-xl shadow-lg transition-all flex items-center gap-3"
                                 >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    Add Location
+                                    <Plus className="h-5 w-5 stroke-[3]" /> Add Location
                                 </Button>
                             </SheetTrigger>
 
@@ -872,7 +884,7 @@ export default function LocationsPage() {
                                                 }
                                                 radius={
                                                     isNaN(Number(form.radius_meters))
-                                                        ? 200
+                                                        ? 50
                                                         : Number(form.radius_meters)
                                                 }
                                                 onChange={(lat: number, lng: number) => {
@@ -1012,7 +1024,7 @@ export default function LocationsPage() {
                     return (
                         <Card
                             key={i}
-                            className="border-none bg-white rounded-2xl p-5 shadow-sm flex flex-col justify-between h-32 group hover:shadow-md transition-all"
+                            className="border-none bg-white rounded-2xl p-5 shadow-sm flex flex-col justify-between min-h-[9rem] gap-4 group hover:shadow-md transition-all"
                         >
                             <div className="flex items-center justify-between">
                                 <div
@@ -1035,11 +1047,11 @@ export default function LocationsPage() {
                                     />
                                 </div>
                             </div>
-                            <div>
-                                <p className="text-3xl font-black text-slate-900 tracking-tight">
+                            <div className="min-w-0">
+                                <p className="text-3xl font-black text-slate-900 tracking-tight truncate">
                                     {stat.value}
                                 </p>
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">
                                     {stat.label}
                                 </p>
                             </div>
@@ -1049,20 +1061,20 @@ export default function LocationsPage() {
             </div>
 
             {/* ── Filters + Search ────────────────────────── */}
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center px-2">
                 {/* Search */}
-                <div className="relative flex-1 w-full md:max-w-sm group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                <div className="lg:col-span-5 relative group">
+                    <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300 group-focus-within:text-slate-900 transition-colors" />
                     <Input
                         placeholder="Search location name, code, or city…"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-11 pr-4 h-11 rounded-2xl border-slate-200 bg-white shadow-sm text-sm focus-visible:ring-indigo-500"
+                        className="w-full bg-white border-slate-100 pl-14 h-14 rounded-2xl font-bold text-xs shadow-sm focus-visible:ring-1 focus-visible:ring-[#D9F99D]"
                     />
                     {search && (
                         <button
                             onClick={() => setSearch("")}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                         >
                             <X className="h-4 w-4" />
                         </button>
@@ -1070,12 +1082,12 @@ export default function LocationsPage() {
                 </div>
 
                 {/* Company filter */}
-                <div className="flex items-center gap-2 bg-slate-50 px-3 h-11 rounded-2xl border border-slate-200 shadow-sm min-w-[160px]">
-                    <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                <div className="lg:col-span-2 flex items-center gap-2 bg-white px-3 h-14 rounded-2xl border border-slate-100 shadow-sm">
+                    <Building2 className="h-4 w-4 text-slate-300 shrink-0" />
                     <select
                         value={companyFilter}
                         onChange={(e) => setCompanyFilter(e.target.value)}
-                        className="bg-transparent border-none text-xs font-bold text-slate-600 outline-none w-full"
+                        className="bg-transparent border-none text-[10px] font-black uppercase text-slate-500 outline-none w-full cursor-pointer"
                     >
                         <option value="all">All Companies</option>
                         {companies.map((c) => (
@@ -1087,12 +1099,12 @@ export default function LocationsPage() {
                 </div>
 
                 {/* City filter */}
-                <div className="flex items-center gap-2 bg-slate-50 px-3 h-11 rounded-2xl border border-slate-200 shadow-sm min-w-[140px]">
-                    <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                <div className="lg:col-span-2 flex items-center gap-2 bg-white px-3 h-14 rounded-2xl border border-slate-100 shadow-sm">
+                    <MapPin className="h-4 w-4 text-slate-300 shrink-0" />
                     <select
                         value={cityFilter}
                         onChange={(e) => setCityFilter(e.target.value)}
-                        className="bg-transparent border-none text-xs font-bold text-slate-600 outline-none w-full"
+                        className="bg-transparent border-none text-[10px] font-black uppercase text-slate-500 outline-none w-full cursor-pointer"
                     >
                         <option value="all">All Cities</option>
                         <option value="Mumbai">Mumbai</option>
@@ -1103,12 +1115,12 @@ export default function LocationsPage() {
                 </div>
 
                 {/* Status filter */}
-                <div className="flex items-center gap-2 bg-slate-50 px-3 h-11 rounded-2xl border border-slate-200 shadow-sm min-w-[120px]">
-                    <Filter className="h-3.5 w-3.5 text-slate-400" />
+                <div className="lg:col-span-2 flex items-center gap-2 bg-white px-3 h-14 rounded-2xl border border-slate-100 shadow-sm">
+                    <Filter className="h-4 w-4 text-slate-300 shrink-0" />
                     <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="bg-transparent border-none text-xs font-bold text-slate-600 outline-none w-full"
+                        className="bg-transparent border-none text-[10px] font-black uppercase text-slate-500 outline-none w-full cursor-pointer"
                     >
                         <option value="all">All Status</option>
                         <option value="active">Active</option>
@@ -1117,17 +1129,19 @@ export default function LocationsPage() {
                 </div>
 
                 {/* Refresh */}
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                        fetchOffices();
-                        fetchStats();
-                    }}
-                    className="h-11 w-11 rounded-2xl bg-white border border-slate-200 shadow-sm"
-                >
-                    <Loader2 className={cn("h-4 w-4 text-slate-500", loading && "animate-spin")} />
-                </Button>
+                <div className="lg:col-span-1 flex justify-end">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                            fetchOffices();
+                            fetchStats();
+                        }}
+                        className="h-14 w-14 rounded-2xl bg-white border border-slate-100 shadow-sm cursor-pointer"
+                    >
+                        <Loader2 className={cn("h-5 w-5 text-slate-400", loading && "animate-spin")} />
+                    </Button>
+                </div>
             </div>
 
             {/* ── Office Cards Grid ────────────────────────── */}
@@ -1146,43 +1160,38 @@ export default function LocationsPage() {
                     </p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 px-2">
                     {offices.map((office) => (
                         <Card
                             key={office.id}
-                            className="border-none bg-white rounded-2xl p-1 overflow-hidden group hover:shadow-xl transition-all duration-500"
+                            className="border border-slate-100 bg-white rounded-[2rem] p-6 shadow-sm group hover:shadow-xl hover:border-slate-200 transition-all duration-500"
                         >
-                            {/* Top accent strip */}
-                            <div
-                                className={cn(
-                                    "h-1.5 w-full rounded-t-2xl",
-                                    office.is_active ? "bg-emerald-400" : "bg-slate-300"
-                                )}
-                            />
 
-                            <div className="p-6 space-y-5">
+                            <div className="space-y-5">
                                 {/* Header row */}
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-12 w-12 rounded-xl ring-2 ring-slate-50">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <Avatar className="h-12 w-12 rounded-xl ring-2 ring-slate-50 shrink-0">
                                             <AvatarFallback className="bg-slate-900 text-white text-xs font-black rounded-xl">
                                                 {getInitials(office.name)}
                                             </AvatarFallback>
                                         </Avatar>
-                                        <div>
-                                            <h3 className="text-sm font-black text-slate-900 tracking-tight">
+                                        <div className="min-w-0">
+                                            <h3 className="text-sm font-black text-slate-900 tracking-tight truncate">
                                                 {office.name}
                                             </h3>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                                <Building2 className="h-3 w-3" />
-                                                {office.company?.name || "Unassigned"}
-                                                {office.code && ` • ${office.code}`}
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 truncate">
+                                                <Building2 className="h-3 w-3 shrink-0" />
+                                                <span className="truncate">
+                                                    {office.company?.name || "Unassigned"}
+                                                    {office.code && ` • ${office.code}`}
+                                                </span>
                                             </p>
                                         </div>
                                     </div>
                                     <Badge
                                         className={cn(
-                                            "font-black text-[7px] uppercase tracking-widest border-none",
+                                            "shrink-0 font-black text-[7px] uppercase tracking-widest border-none",
                                             office.is_active
                                                 ? "bg-emerald-50 text-emerald-600"
                                                 : "bg-slate-100 text-slate-500"
@@ -1197,7 +1206,7 @@ export default function LocationsPage() {
                                     {(office.city || office.state) && (
                                         <div className="flex items-center gap-2">
                                             <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                            <span className="text-xs font-medium text-slate-600">
+                                            <span className="text-xs font-medium text-slate-600 truncate">
                                                 {[office.city, office.state].filter(Boolean).join(", ")}
                                             </span>
                                         </div>
@@ -1205,7 +1214,7 @@ export default function LocationsPage() {
 
                                     {/* Geo-fence pill — clickable to open map */}
                                     <div
-                                        className="flex items-center gap-2 group/geofence cursor-pointer"
+                                        className="flex items-center flex-wrap gap-2 group/geofence cursor-pointer"
                                         onClick={() => setGeoFenceTarget(office)}
                                         title="Click to view geo-fence on map"
                                     >
@@ -1223,7 +1232,7 @@ export default function LocationsPage() {
                                     {(office.contact_person || office.contact_phone) && (
                                         <div className="flex items-center gap-2">
                                             <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                            <span className="text-xs text-slate-500">
+                                            <span className="text-xs text-slate-500 truncate">
                                                 {office.contact_person}
                                                 {office.contact_person && office.contact_phone && " • "}
                                                 {office.contact_phone}
@@ -1432,9 +1441,68 @@ export default function LocationsPage() {
                                     className="rounded-xl border-slate-200 h-11 text-sm"
                                 />
                             </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                        Email
+                                    </Label>
+                                    <Input
+                                        value={companyForm.email}
+                                        onChange={(e) => setCompanyForm((prev) => ({ ...prev, email: e.target.value }))}
+                                        placeholder="hr@example.com"
+                                        className="rounded-xl border-slate-200 h-11 text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                        Phone
+                                    </Label>
+                                    <Input
+                                        value={companyForm.phone}
+                                        onChange={(e) => setCompanyForm((prev) => ({ ...prev, phone: e.target.value }))}
+                                        placeholder="+91-XXXXX XXXXX"
+                                        className="rounded-xl border-slate-200 h-11 text-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                        City
+                                    </Label>
+                                    <Input
+                                        value={companyForm.city}
+                                        onChange={(e) => setCompanyForm((prev) => ({ ...prev, city: e.target.value }))}
+                                        placeholder="City"
+                                        className="rounded-xl border-slate-200 h-11 text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                        State
+                                    </Label>
+                                    <Input
+                                        value={companyForm.state}
+                                        onChange={(e) => setCompanyForm((prev) => ({ ...prev, state: e.target.value }))}
+                                        placeholder="State"
+                                        className="rounded-xl border-slate-200 h-11 text-sm"
+                                    />
+                                </div>
+                            </div>
                             <div className="space-y-2">
                                 <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                    Address
+                                    Website
+                                </Label>
+                                <Input
+                                    value={companyForm.website}
+                                    onChange={(e) => setCompanyForm((prev) => ({ ...prev, website: e.target.value }))}
+                                    placeholder="www.example.com"
+                                    className="rounded-xl border-slate-200 h-11 text-sm"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                                    Full Address
                                 </Label>
                                 <Input
                                     value={companyForm.address}

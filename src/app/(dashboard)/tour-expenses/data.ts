@@ -45,6 +45,8 @@ export interface Expense {
   remarks: string;
   approvedBy?: string;
   rejectedReason?: string;
+  company?: string;
+  db_id?: number | string;
 }
 
 export const INITIAL_EXPENSES: Expense[] = [

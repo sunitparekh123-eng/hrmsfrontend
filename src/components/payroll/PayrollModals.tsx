@@ -45,14 +45,18 @@ export function GlobalRulesSheet({
                                     <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Earnings Breakdown</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Fixed Gross Salary</Label>
+                                    <div className="space-y-2 relative group">
+                                        <div className="flex justify-between items-center ml-1">
+                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Fixed Gross Salary</Label>
+                                            <Badge className="bg-slate-100 text-slate-500 border-none font-bold text-[7px] uppercase tracking-widest px-1.5 h-3.5">Locked</Badge>
+                                        </div>
                                         <Input 
                                             type="number" 
+                                            disabled
                                             value={selectedEmployee.fixedGross || 0}
-                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'fixedGross', parseInt(e.target.value) || 0)}
-                                            className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px] focus:bg-white transition-all" 
+                                            className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold text-[11px] text-slate-500 cursor-not-allowed opacity-70" 
                                         />
+                                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest ml-1">Managed via Profile Update</p>
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Previous Arrears</Label>
@@ -62,6 +66,7 @@ export function GlobalRulesSheet({
                                             onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'previousArrears', parseInt(e.target.value) || 0)}
                                             className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px] focus:bg-white transition-all" 
                                         />
+                                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest ml-1">One-time addition</p>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
@@ -71,7 +76,7 @@ export function GlobalRulesSheet({
                                             type="number" 
                                             value={selectedEmployee.bonus || 0}
                                             onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'bonus', parseInt(e.target.value) || 0)}
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px]" 
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px] focus:bg-white transition-all" 
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -80,64 +85,59 @@ export function GlobalRulesSheet({
                                             type="number" 
                                             value={selectedEmployee.incentive || 0}
                                             onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'incentive', parseInt(e.target.value) || 0)}
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px]" 
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px] focus:bg-white transition-all" 
                                         />
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 mb-2 pt-4 border-t border-slate-100">
                                     <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                                    <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Manual Deductions</span>
+                                    <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Deductions & Recoveries</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Advance/Loan/TDS</Label>
+                                    <div className="space-y-2 relative">
+                                        <div className="flex justify-between items-center ml-1">
+                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Advance / Loan EMI</Label>
+                                            <Badge className="bg-emerald-50 text-emerald-600 border-none font-bold text-[7px] uppercase tracking-widest px-1.5 h-3.5">Auto</Badge>
+                                        </div>
                                         <Input 
                                             type="number" 
+                                            disabled
                                             value={selectedEmployee.loanDeduction || 0}
-                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'loanDeduction', parseInt(e.target.value) || 0)}
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px]" 
+                                            className="h-10 rounded-xl bg-emerald-50/30 border-emerald-100/50 font-bold text-[10px] text-emerald-700 cursor-not-allowed" 
                                         />
+                                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest ml-1">Synced from Loan Module</p>
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Other Deduction</Label>
+                                        <div className="flex justify-between items-center ml-1">
+                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Other Deduction</Label>
+                                        </div>
                                         <Input 
                                             type="number" 
                                             value={selectedEmployee.otherDeduction || 0}
                                             onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'otherDeduction', parseInt(e.target.value) || 0)}
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px]" 
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px] focus:bg-white transition-all" 
                                         />
+                                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest ml-1">Manual recovery</p>
                                     </div>
                                 </div>
 
                                 <div className="flex items-center gap-2 mb-2 pt-4 border-t border-slate-100">
                                     <div className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-                                    <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Attendance & Compliance</span>
+                                    <span className="text-[9px] font-black text-slate-900 uppercase tracking-widest">Attendance Compliance</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Absent Days</Label>
+                                    <div className="space-y-2 col-span-2">
+                                        <div className="flex justify-between items-center ml-1">
+                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Loss of Pay (Absent Days)</Label>
+                                            <Badge className="bg-blue-50 text-blue-600 border-none font-bold text-[7px] uppercase tracking-widest px-1.5 h-3.5">Live Sync</Badge>
+                                        </div>
                                         <Input 
                                             type="number" 
+                                            disabled
                                             value={selectedEmployee.absentDays}
-                                            onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'absentDays', parseInt(e.target.value) || 0)}
-                                            className="h-12 rounded-xl bg-orange-50/50 border-orange-100 font-bold text-[11px]" 
+                                            className="h-12 rounded-xl bg-blue-50/30 border-blue-100/50 font-bold text-[11px] text-blue-700 cursor-not-allowed" 
                                         />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">PF Logic</Label>
-                                        <Select 
-                                            value={selectedEmployee.pfType}
-                                            onValueChange={(val) => handleSalaryUpdate(selectedEmployee.id, 'pfType', val)}
-                                        >
-                                            <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="border-none shadow-xl rounded-xl">
-                                                <SelectItem value="Full PF" className="text-[10px] font-bold uppercase">Full (Override Ceiling)</SelectItem>
-                                                <SelectItem value="Partial PF" className="text-[10px] font-bold uppercase">Standard (15k Cap)</SelectItem>
-                                                <SelectItem value="No PF" className="text-[10px] font-bold uppercase">No PF</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest ml-1">Auto-calculated based on daily attendance records</p>
                                     </div>
                                 </div>
                             </div>
@@ -148,7 +148,7 @@ export function GlobalRulesSheet({
                                 </div>
                                 <div className="grid grid-cols-2 gap-6 relative z-10">
                                     <div>
-                                        <p className="text-[8px] font-black uppercase text-slate-500 tracking-[0.3em] mb-1">LOP Deduction</p>
+                                        <p className="text-[8px] font-black uppercase text-slate-100 tracking-[0.3em] mb-1">LOP Deduction</p>
                                         <h4 className="text-lg font-black text-rose-400 tracking-tighter italic">₹{calculateProductionNet(selectedEmployee)?.lop?.toLocaleString()}</h4>
                                     </div>
                                     <div className="text-right">
@@ -247,16 +247,16 @@ export function DisbursementDialog({
                             </DialogDescription>
                         </DialogHeader>
                         
-                        <div className="my-8 p-8 rounded-[2rem] bg-slate-950 text-white relative overflow-hidden border border-white/5 shadow-2xl">
-                            <div className="absolute top-0 right-0 p-6 opacity-5">
-                                <ArrowUpRight className="h-16 w-16" />
+                        <div className="my-8 p-8 rounded-[2rem] bg-slate-50 text-slate-900 relative overflow-hidden border border-slate-100 shadow-xl">
+                            <div className="absolute top-0 right-0 p-6 opacity-[0.03]">
+                                <ArrowUpRight className="h-16 w-16 text-slate-900" />
                             </div>
                             <div className="grid grid-cols-2 gap-6 text-left relative z-10">
                                 <div>
-                                    <p className="text-[8px] font-black uppercase text-slate-500 tracking-[0.2em] mb-2">Total Gross</p>
-                                    <p className="text-xl font-black italic text-white tracking-tighter">₹{ledger.reduce((acc: any, curr: any) => acc + calculateProductionNet(curr).totalEarnings, 0).toLocaleString()}</p>
+                                    <p className="text-[8px] font-black uppercase text-slate-400 tracking-[0.2em] mb-2">Total Gross</p>
+                                    <p className="text-xl font-black italic text-slate-900 tracking-tighter">₹{ledger.reduce((acc: any, curr: any) => acc + calculateProductionNet(curr).totalEarnings, 0).toLocaleString()}</p>
                                 </div>
-                                <div className="text-right border-l border-white/10 pl-6">
+                                <div className="text-right border-l border-slate-200 pl-6">
                                     <p className="text-[8px] font-black uppercase text-rose-400 tracking-[0.2em] mb-2">Deductions</p>
                                     <p className="text-xl font-black italic text-rose-500 tracking-tighter">
                                         -₹{ledger.reduce((acc: any, curr: any) => {
@@ -266,9 +266,9 @@ export function DisbursementDialog({
                                     </p>
                                 </div>
                             </div>
-                            <div className="mt-8 pt-8 border-t border-white/10">
-                                <p className="text-[9px] font-black uppercase text-[#D9F99D] tracking-[0.3em] mb-2">Net Funds to Disburse</p>
-                                <h4 className="text-4xl font-black italic tracking-tighter">₹{ledger.reduce((acc: any, curr: any) => acc + calculateProductionNet(curr).net, 0).toLocaleString()}</h4>
+                            <div className="mt-8 pt-8 border-t border-slate-200">
+                                <p className="text-[9px] font-black uppercase text-emerald-600 tracking-[0.3em] mb-2">Net Funds to Disburse</p>
+                                <h4 className="text-4xl font-black italic tracking-tighter text-slate-900">₹{ledger.reduce((acc: any, curr: any) => acc + calculateProductionNet(curr).net, 0).toLocaleString()}</h4>
                             </div>
                         </div>
 

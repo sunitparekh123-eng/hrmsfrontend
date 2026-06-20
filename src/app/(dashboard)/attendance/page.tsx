@@ -97,12 +97,12 @@ export default function AttendancePage() {
     // Fetch companies and offices for filter dropdowns
     useEffect(() => {
         Promise.all([
-            apiGet<{ rows?: { id: number; name: string }[]; data?: { id: number; name: string }[] }>("/companies"),
-            apiGet<{ rows?: { id: number; name: string }[]; data?: { id: number; name: string }[] }>("/offices"),
+            apiGet<{ id: number; name: string }[]>("/companies"),
+            apiGet<{ id: number; name: string }[]>("/offices"),
         ])
             .then(([compRes, offRes]) => {
-                setCompanies(compRes.rows || compRes.data || []);
-                setOffices(offRes.rows || offRes.data || []);
+                setCompanies(Array.isArray(compRes) ? compRes : []);
+                setOffices(Array.isArray(offRes) ? offRes : []);
             })
             .catch(() => { setCompanies([]); setOffices([]); });
     }, []);
@@ -995,6 +995,11 @@ export default function AttendancePage() {
                                             <th className="text-left py-4 px-6 text-[9px] font-black text-slate-400 uppercase tracking-widest sticky left-0 bg-white z-20 w-56 shadow-[4px_0_12px_-4px_rgba(0,0,0,0.05)] border-r border-slate-50">
                                                 Employee Details
                                             </th>
+                                            <th className="text-center py-4 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[70px] border-r border-slate-50">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <span className="text-slate-600">Company</span>
+                                                </div>
+                                            </th>
                                             <th className="text-center py-4 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest min-w-[90px] bg-emerald-50/30 border-r border-slate-50">
                                                 <div className="flex flex-col items-center gap-1">
                                                     <span className="text-emerald-600">Payable</span>
@@ -1029,9 +1034,9 @@ export default function AttendancePage() {
                                     </TableHeader>
                                     <TableBody>
                                         {monthlyLoading ? (
-                                            <tr><td colSpan={daysInSelectedMonth + 4} className="py-20 text-center"><p className="text-[10px] font-bold text-slate-400 animate-pulse">Loading monthly data...</p></td></tr>
+                                            <tr><td colSpan={daysInSelectedMonth + 5} className="py-20 text-center"><p className="text-[10px] font-bold text-slate-400 animate-pulse">Loading monthly data...</p></td></tr>
                                         ) : monthlyRows.length === 0 ? (
-                                            <tr><td colSpan={daysInSelectedMonth + 4} className="py-20 text-center"><p className="text-[10px] font-bold text-slate-400">No monthly attendance records found</p></td></tr>
+                                            <tr><td colSpan={daysInSelectedMonth + 5} className="py-20 text-center"><p className="text-[10px] font-bold text-slate-400">No monthly attendance records found</p></td></tr>
                                         ) : monthlyRows.map((emp, idx) => {
                                             const payable = emp.present + emp.woff + emp.leave + emp.holiday;
                                             const dailyRate = Math.round(emp.salary / daysInSelectedMonth);
@@ -1065,42 +1070,28 @@ export default function AttendancePage() {
                                                     </td>
                                                     {/* Day cells */}
                                                     {[...Array(daysInSelectedMonth)].map((_, dayIdx) => {
-                                                        const status = emp.grid[dayIdx] || 'A';
+                                                        const status = emp.grid[dayIdx] || '-';
                                                         const dateObj = new Date(selectedYear, selectedMonth, dayIdx + 1);
                                                         const isToday =
                                                             dateObj.getDate() === currentDate.getDate() &&
                                                             dateObj.getMonth() === currentDate.getMonth() &&
                                                             dateObj.getFullYear() === currentDate.getFullYear();
+                                                        const isFuture = dateObj > currentDate;
 
                                                         const isPayable = status === 'P' || status === 'H' || status === 'W' || status === 'L';
-                                                        const earnedForDay = status === 'A' ? 0 : dailyRate;
+                                                        const earnedForDay = status === 'A' || status === '-' ? 0 : dailyRate;
 
                                                         const statusLabel =
                                                             status === 'P' ? 'Present ✅' :
                                                                 status === 'A' ? 'Absent (LWP) ❌' :
                                                                     status === 'W' ? 'Weekly Off 🌴' :
                                                                         status === 'H' ? 'Holiday 🎌' :
-                                                                            status === 'L' ? 'Paid Leave 🏖️' : 'Unknown';
+                                                                            status === 'L' ? 'Paid Leave 🏖️' :
+                                                                                status === '-' ? 'Yet to occur ⏳' : 'Unknown';
 
                                                         const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dateObj.getDay()];
 
-                                                        const tooltipLines = [
-                                                            `${emp.name}`,
-                                                            `Date: ${dayIdx + 1} ${monthNames[selectedMonth]} ${selectedYear} (${dayAbbr})`,
-                                                            `Status: ${statusLabel}`,
-                                                            `────────────────────`,
-                                                            `Fixed Gross: ₹${(emp.salary || 0).toLocaleString('en-IN')}`,
-                                                            `Per-Day Rate: ₹${dailyRate.toLocaleString('en-IN')}`,
-                                                            `Today's Earnings: ₹${earnedForDay.toLocaleString('en-IN')}`,
-                                                            status === 'A' ? `Deduction: -₹${dailyRate.toLocaleString('en-IN')}` : `Payable: ✅ Yes`,
-                                                            `────────────────────`,
-                                                            `Month Summary:`,
-                                                            `Present: ${emp.present ?? 0} | Absent: ${emp.absent ?? 0}`,
-                                                            `WOff: ${emp.woff ?? 0} | Holiday: ${emp.holiday ?? 0}`,
-                                                            `Leave: ${emp.leave ?? 0}`,
-                                                            `Payable Days: ${payable}`,
-                                                            `Est. Payout: ₹${(payable * dailyRate).toLocaleString('en-IN')}`,
-                                                        ].join('\n');
+                                                        const tooltipLines = `₹${earnedForDay.toLocaleString('en-IN')}`;
 
                                                         return (
                                                             <td key={dayIdx} className={cn("py-3 px-1 text-center transition-all", isToday ? "bg-indigo-50/30" : "")}>
@@ -1110,9 +1101,10 @@ export default function AttendancePage() {
                                                                         "h-6 w-6 mx-auto rounded-md flex items-center justify-center text-[8px] font-black transition-transform hover:scale-110 cursor-help shadow-sm border",
                                                                         status === 'P' ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
                                                                             status === 'A' ? "bg-rose-500 text-white shadow-rose-200 border-rose-600" :
-                                                                                status === 'H' ? "bg-blue-500 text-white shadow-blue-200 border-blue-600" :
-                                                                                    status === 'L' ? "bg-amber-100 text-amber-700 border-amber-200" :
-                                                                                        "bg-slate-100 text-slate-400 border-slate-200 opacity-60"
+                                                                                status === 'W' ? "bg-slate-100 text-slate-400 border-slate-200 opacity-60" :
+                                                                                    status === 'H' ? "bg-blue-500 text-white shadow-blue-200 border-blue-600" :
+                                                                                        status === 'L' ? "bg-amber-100 text-amber-700 border-amber-200" :
+                                                                                            "bg-white text-slate-300 border-dashed border-slate-200"
                                                                     )}
                                                                 >
                                                                     {status}

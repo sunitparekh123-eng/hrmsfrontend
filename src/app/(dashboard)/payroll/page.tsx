@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { salaryToWords } from "@/lib/amount-to-words";
 import {
     Wallet,
     ArrowUpRight,
@@ -111,7 +112,7 @@ export default function PayrollPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [cycleId, setCycleId] = useState<number | null>(null);
-    const itemsPerPage = 4;
+    const itemsPerPage = 10;
 
     const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
     const [disbursementStep, setDisbursementStep] = useState(1);
@@ -149,7 +150,8 @@ export default function PayrollPage() {
             setLedger(data.rows || []);
             if (data.cycle) {
                 setCycleId(data.cycle.id);
-                setGlobalRules(prev => ({ ...prev, cycle: `${data.cycle.month} ${data.cycle.year}` }));
+                // `data.cycle.month` is often formatted as 'June 2026' from the backend
+                setGlobalRules(prev => ({ ...prev, cycle: `${String(data.cycle.month).replace(/\b\d{4}\b/g, '').trim()} ${data.cycle.year}` }));
                 if (data.cycle.elapsedDays) setElapsedDays(data.cycle.elapsedDays);
             }
             // Extract unique branches
@@ -244,10 +246,12 @@ export default function PayrollPage() {
         const esiEmployer = row.esicApplicable ? Math.ceil(totalEarnings * 0.0325) : 0;
         const totalMonthlyCTC = totalEarnings + pfEmployer + esiEmployer;
 
+        const lop = row.fixedGross - proratedGross;
+
         return {
             basic, hra, other, proratedGross, totalEarnings,
             pf, esi, pt, grossDeductions, net,
-            pfEmployer, esiEmployer, totalMonthlyCTC
+            pfEmployer, esiEmployer, totalMonthlyCTC, lop
         };
     };
 
@@ -256,7 +260,8 @@ export default function PayrollPage() {
     const handleSalaryUpdate = async (id: number, field: string, value: any) => {
         setLedger(prev => prev.map(emp => emp.id === id ? { ...emp, [field]: value } : emp));
         try {
-            await apiPatch(`/payroll/entry/${id}`, { [field]: value });
+            const backendField = field.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            await apiPatch(`/payroll/entry/${id}`, { [backendField]: value });
         } catch (e) {
             console.error("Failed to update entry:", e);
         }
@@ -352,58 +357,152 @@ export default function PayrollPage() {
     };
 
     const generatePayslip = (row: any) => {
-        const doc = new jsPDF();
+        const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a5' });
         const pNet = calculateProductionNet(row);
+        const cycleText = globalRules?.cycle || 'June 2026';
 
-        // Branding
-        doc.setFontSize(22);
-        doc.setTextColor(15, 23, 42); // slate-900
-        doc.text("NODE HRMS", 20, 25);
-        doc.setFontSize(10);
-        doc.setTextColor(148, 163, 184); // slate-400
-        doc.text(`P AY R O L L   S L I P   •   ${globalRules.cycle}`, 20, 32);
+        const primaryColor: [number, number, number] = [15, 23, 42]; // slate-900
+        const accentColor: [number, number, number] = [37, 99, 235]; // blue-600
+        const textColor: [number, number, number] = [30, 30, 30];
+        const mutedColor: [number, number, number] = [100, 100, 100];
+        const lineColor: [number, number, number] = [226, 232, 240]; // slate-200
 
-        // Employee Info
-        doc.setFontSize(12);
-        doc.setTextColor(15, 23, 42);
-        doc.text(`Employee: ${row.name} (${row.employeeCode})`, 20, 50);
-        doc.text(`Designation: ${row.designation}`, 20, 57);
-        doc.text(`Location: ${row.location} | Company: ${row.company}`, 20, 64);
+        // ── Top Accent Bar ──
+        doc.setFillColor(...accentColor);
+        doc.rect(0, 0, 210, 4, 'F');
 
-        // Table
-        autoTable(doc, {
-            startY: 75,
-            head: [['Description', 'Earnings', 'Deductions']],
-            body: [
-                ['Basic Salary', `Rs. ${pNet.basic.toLocaleString()}`, '-'],
-                ['HRA', `Rs. ${pNet.hra.toLocaleString()}`, '-'],
-                ['Other Allowances', `Rs. ${pNet.other.toLocaleString()}`, '-'],
-                ['Bonus / Arrears', `Rs. ${(row.bonus + row.previousArrears).toLocaleString()}`, '-'],
-                ['Provident Fund (PF)', '-', `Rs. ${pNet.pf.toLocaleString()}`],
-                ['Professional Tax (PT)', '-', `Rs. ${pNet.pt.toLocaleString()}`],
-                ['ESI (Employees State Insurance)', '-', `Rs. ${pNet.esi.toLocaleString()}`],
-                ['Loan/Advance Deduction', '-', `Rs. ${row.loanDeduction.toLocaleString()}`],
-            ],
-            theme: 'striped',
-            headStyles: { fillColor: [15, 23, 42], fontSize: 10 },
-            styles: { fontSize: 9 },
-            foot: [['TOTAL', `Rs. ${pNet.totalEarnings.toLocaleString()}`, `Rs. ${pNet.grossDeductions.toLocaleString()}`]],
-            footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold' }
-        });
-
-        const finalY = (doc as any).lastAutoTable.finalY || 150;
-
-        doc.setFontSize(14);
+        // ── Header ──
         doc.setFont("helvetica", "bold");
-        doc.text(`NET PAYABLE: Rs. ${pNet.net.toLocaleString()}`, 20, finalY + 20);
+        doc.setFontSize(20);
+        doc.setTextColor(...primaryColor);
+        doc.text("NODE HRMS", 15, 18);
 
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...textColor);
+        doc.text(row.company || "Apaar Logistics Pvt Ltd", 195, 15, { align: "right" });
         doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
-        doc.setTextColor(148, 163, 184);
-        doc.text("Note: This is a computer-generated document and does not require a signature.", 20, finalY + 40);
+        doc.setTextColor(...mutedColor);
+        doc.text(row.location || "Corporate Office: Mumbai, India", 195, 20, { align: "right" });
 
-        doc.save(`${row.name.replace(" ", "_")}_Payslip_${globalRules.cycle.replace(" ", "")}.pdf`);
+        // Title
+        doc.setFillColor(248, 250, 252);
+        doc.rect(15, 25, 180, 8, 'F');
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...primaryColor);
+        doc.text(`PAYSLIP FOR THE MONTH OF ${cycleText.toUpperCase()}`, 105, 30, { align: "center" });
+
+        // ── Employee Profile (Clean Grid) ──
+        let currentY = 38;
+        doc.setFontSize(8);
+        doc.setTextColor(...textColor);
+
+        const drawLabelValue = (label: string, value: string, x: number, y: number) => {
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...mutedColor);
+            doc.text(label, x, y);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...textColor);
+            doc.text(value, x + 22, y);
+        };
+
+        drawLabelValue("Name:", row.name || "--", 15, currentY);
+        drawLabelValue("Emp ID:", row.employeeCode || "--", 80, currentY);
+        drawLabelValue("UAN:", row.uan || "--", 145, currentY);
+
+        currentY += 6;
+        drawLabelValue("Designation:", row.designation || "--", 15, currentY);
+        drawLabelValue("Department:", row.department || "--", 80, currentY);
+        drawLabelValue("PF No:", row.pfNumber || "--", 145, currentY);
+
+        currentY += 6;
+        drawLabelValue("Bank Name:", row.bankName || "--", 15, currentY);
+        drawLabelValue("A/C No:", row.bankAccountNumber || "--", 80, currentY);
+        drawLabelValue("Days Worked:", String(row.workingDays || 0), 145, currentY);
+
+        currentY += 8;
+
+        // ── Salary Details Table (4 Columns) ──
+        autoTable(doc, {
+            startY: currentY,
+            theme: 'grid',
+            head: [['Earnings', 'Amount (INR)', 'Deductions', 'Amount (INR)']],
+            body: [
+                ['Basic Salary', Number(pNet.basic).toLocaleString('en-IN', {minimumFractionDigits: 2}), pNet.pf > 0 ? 'Provident Fund (PF)' : '', pNet.pf > 0 ? Number(pNet.pf).toLocaleString('en-IN', {minimumFractionDigits: 2}) : ''],
+                ['House Rent Allowance', Number(pNet.hra).toLocaleString('en-IN', {minimumFractionDigits: 2}), pNet.esi > 0 ? 'Employee State Ins. (ESI)' : '', pNet.esi > 0 ? Number(pNet.esi).toLocaleString('en-IN', {minimumFractionDigits: 2}) : ''],
+                ['Special Allowance', Number(pNet.other).toLocaleString('en-IN', {minimumFractionDigits: 2}), pNet.pt > 0 ? 'Professional Tax (PT)' : '', pNet.pt > 0 ? Number(pNet.pt).toLocaleString('en-IN', {minimumFractionDigits: 2}) : ''],
+                [row.conveyance ? 'Conveyance Allowance' : '', row.conveyance ? Number(row.conveyance).toLocaleString('en-IN', {minimumFractionDigits: 2}) : '', row.loanDeduction > 0 ? 'Loan Deduction' : '', row.loanDeduction > 0 ? Number(row.loanDeduction).toLocaleString('en-IN', {minimumFractionDigits: 2}) : '']
+            ].filter(r => r.some(cell => cell !== '')),
+            headStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', lineWidth: 0.1, lineColor: [226, 232, 240] },
+            bodyStyles: { textColor: [30, 30, 30], lineWidth: 0.1, lineColor: [226, 232, 240] },
+            styles: { fontSize: 8, cellPadding: 3 },
+            columnStyles: {
+                0: { cellWidth: 55 },
+                1: { cellWidth: 35, halign: 'right' },
+                2: { cellWidth: 55 },
+                3: { cellWidth: 35, halign: 'right' }
+            },
+            foot: [['Gross Earnings', Number(pNet.totalEarnings).toLocaleString('en-IN', {minimumFractionDigits: 2}), 'Gross Deductions', Number(pNet.grossDeductions).toLocaleString('en-IN', {minimumFractionDigits: 2})]],
+            footStyles: { fillColor: [255, 255, 255], textColor: [15, 23, 42], fontStyle: 'bold', lineWidth: 0.1, lineColor: [226, 232, 240] },
+            margin: { left: 15, right: 15 }
+        });
+
+        const finalY = (doc as any).lastAutoTable.finalY + 8;
+
+        // ── Excel Data Summary Section (Net, PF Employer, ESIC Employer, CTC) ──
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(...lineColor);
+        doc.rect(15, finalY, 180, 25, 'FD');
+
+        // Net Pay Highlight
+        doc.setFillColor(220, 252, 231); // green-100
+        doc.rect(15, finalY, 60, 25, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(22, 101, 52); // green-800
+        doc.text("Net Take Home", 45, finalY + 8, { align: "center" });
+        doc.setFontSize(14);
+        doc.text(`INR ${Number(pNet.net).toLocaleString('en-IN', {minimumFractionDigits: 2})}`, 45, finalY + 18, { align: "center" });
+
+        // Divider
+        doc.line(75, finalY, 75, finalY + 25);
+
+        // CTC & Employer Contributions
+        doc.setFontSize(8);
+        doc.setTextColor(...mutedColor);
+        doc.text("Employer PF:", 85, finalY + 8);
+        doc.text("Employer ESIC:", 85, finalY + 18);
+        
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...textColor);
+        doc.text(Number(pNet.pfEmployer || 0).toLocaleString('en-IN', {minimumFractionDigits: 2}), 115, finalY + 8);
+        doc.text(Number(pNet.esiEmployer || 0).toLocaleString('en-IN', {minimumFractionDigits: 2}), 115, finalY + 18);
+
+        // Highlight CTC
+        doc.setFillColor(254, 249, 195); // yellow-100
+        doc.rect(140, finalY, 55, 25, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(133, 77, 14); // yellow-800
+        doc.text("Total Monthly CTC", 167.5, finalY + 8, { align: "center" });
+        doc.setFontSize(14);
+        doc.text(`INR ${Number(pNet.totalMonthlyCTC).toLocaleString('en-IN', {minimumFractionDigits: 2})}`, 167.5, finalY + 18, { align: "center" });
+
+        // ── Footer ──
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(...mutedColor);
+        doc.text(`Amount in words: ${salaryToWords(pNet.net)}`, 105, finalY + 32, { align: "center" });
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        doc.text("This is a computer-generated document and does not require a signature.", 105, 142, { align: "center" });
+
+        doc.save(`${row.name.replace(" ", "_")}_Payslip_${(globalRules?.cycle || "Draft").replace(" ", "")}.pdf`);
     };
+
 
     return (
         <ProtectedRoute module="PAYROLL" action="READ">
@@ -482,6 +581,7 @@ export default function PayrollPage() {
                             </SelectTrigger>
                             <SelectContent className="border-none shadow-xl rounded-2xl">
                                 <SelectItem value="ALL" className="text-[10px] font-bold uppercase">All Status</SelectItem>
+                                <SelectItem value="Draft" className="text-[10px] font-bold uppercase">Draft</SelectItem>
                                 <SelectItem value="Verified" className="text-[10px] font-bold uppercase">Verified</SelectItem>
                                 <SelectItem value="Pending Audit" className="text-[10px] font-bold uppercase">Pending Audit</SelectItem>
                                 <SelectItem value="Paid" className="text-[10px] font-bold uppercase">Paid Records</SelectItem>
@@ -520,7 +620,7 @@ export default function PayrollPage() {
                                 <CardTitle className="text-lg font-black italic text-slate-900 underline underline-offset-4 decoration-[#D9F99D] decoration-2 uppercase tracking-tighter">Monthly Salary List</CardTitle>
                                 <CardDescription className="text-[8px] font-black text-slate-400 mt-4 uppercase tracking-[0.3em] italic">Branch salary details</CardDescription>
                             </div>
-                            <Badge className="bg-slate-900 text-white border-none font-black text-[8px] tracking-[0.2em] px-4 py-2 rounded-xl uppercase">Cycle: FEB 2026</Badge>
+                            <Badge className="bg-slate-900 text-white border-none font-black text-[8px] tracking-[0.2em] px-4 py-2 rounded-xl uppercase">Cycle: {globalRules.cycle}</Badge>
                         </div>
                     </CardHeader>
                     <CardContent className="mt-4">

@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Link from "next/link";
+import * as XLSX from "xlsx";
 import { apiGetPaginated } from "@/lib/api-client";
 
 export default function PayrollHistoryPage() {
@@ -59,6 +60,23 @@ export default function PayrollHistoryPage() {
 
     const completedHistory = historyData.filter(h => h.status === "Completed");
 
+    const handleExport = () => {
+        const rows = completedHistory.map(item => ({
+            "Payroll Month": item.monthName,
+            "Cycle ID": item.monthId,
+            "Status": item.status,
+            "Total Staff Paid": item.totalStaff,
+            "Total Disbursement": item.totalPayout,
+            "Disbursement Date": item.disbursementDate,
+            "Branches Paid": item.branches.length
+        }));
+        
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Audit Ledger");
+        XLSX.writeFile(workbook, `Master_Audit_Ledger_${selectedYear === "All" ? "All_Years" : selectedYear}.xlsx`);
+    };
+
     return (
         <ProtectedRoute module="PAYROLL" action="READ">
             <div className="space-y-8 pb-20">
@@ -77,7 +95,10 @@ export default function PayrollHistoryPage() {
                             <p className="text-[10px] font-black text-slate-400 mt-4 uppercase tracking-[0.4em]">Monthly Consolidated Audit Trail</p>
                         </div>
                     </div>
-                    <Button className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[9px] tracking-widest px-6 h-11 rounded-xl shadow-xl transition-all hover:translate-y-[-2px]">
+                    <Button 
+                        onClick={handleExport}
+                        className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[9px] tracking-widest px-6 h-11 rounded-xl shadow-xl transition-all hover:translate-y-[-2px]"
+                    >
                         <FileDown className="h-4 w-4 mr-2" /> Export Master Ledger
                     </Button>
                 </div>

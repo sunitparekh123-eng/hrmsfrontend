@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Plane, Plus, Search, Filter, CheckCircle2, Clock, XCircle,
   Receipt, MapPin, Calendar, User, ArrowUpRight, Download,
   ChevronDown, Wallet, FileText, TrendingUp, AlertCircle,
-  Building2, Upload, Paperclip, Eye, Trash2
+  Building2, Upload, Paperclip, Eye, Trash2, Loader2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,10 +15,14 @@ import {
   Dialog, DialogContent, DialogTitle, DialogFooter, DialogDescription, DialogHeader
 } from "@/components/ui/dialog";
 import { useRole } from "@/context/RoleContext";
+import { useAuth } from "@/context/AuthContext";
+import { apiGet, apiPost, apiPut } from "@/lib/api-client";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 import {
-  BRANCHES, EXPENSE_CATEGORIES, POLICY_RULES,
-  INITIAL_EXPENSES, Expense, Receipt as ReceiptType, ExpenseStatus
+  BRANCHES, EXPENSE_CATEGORIES,
+  Expense, Receipt as ReceiptType, ExpenseStatus
 } from "./data";
 
 const cn = (...c: string[]) => c.filter(Boolean).join(" ");
@@ -35,7 +39,8 @@ const statusIcon: Record<string, any> = {
 };
 
 export default function TourExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>(INITIAL_EXPENSES);
+  const { user } = useAuth();
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [search, setSearch]               = useState("");
   const [filterStatus, setFilterStatus]   = useState("All");
   const [showAdd, setShowAdd]             = useState(false);
@@ -44,11 +49,17 @@ export default function TourExpensesPage() {
   const { hasPermission } = useRole();
   const canEditPolicy = hasPermission('TOUR_EXPENSES', 'UPDATE');
 
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState({
+    totalClaims: 0,
+    totalApproved: 0,
+    totalPending: 0,
+    pendingCount: 0
+  });
+
   // Policy State
-  const [policies, setPolicies] = useState(POLICY_RULES);
-  const [generalRules, setGeneralRules] = useState(
-    "All claims must be submitted within 7 days of tour completion. Receipts are mandatory for all expenses above ₹ 200. Claims submitted after 15 days will not be reimbursed without HOD approval. Advance settlement must be done within 3 days of return."
-  );
+  const [policies, setPolicies] = useState<{ label: string; limit: string; note: string }[]>([]);
+  const [generalRules, setGeneralRules] = useState("");
   
   // Policy Edit Dialog
   const [showPolicyDialog, setShowPolicyDialog] = useState(false);
@@ -74,58 +85,316 @@ export default function TourExpensesPage() {
     startDate: "", endDate: "", category: EXPENSE_CATEGORIES[0], amount: "", notes: "", receipts: []
   });
 
-  const filtered = expenses.filter(e => {
-    const matchSearch = e.employee.toLowerCase().includes(search.toLowerCase()) ||
-                        e.id.toLowerCase().includes(search.toLowerCase()) ||
-                        e.purpose.toLowerCase().includes(search.toLowerCase()) ||
-                        e.branch.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = filterStatus === "All" || e.status === filterStatus;
-    return matchSearch && matchStatus;
-  });
+  const fetchClaims = useCallback(async () => {
+    setLoading(true);
+    try {
+      const queryParams: any = {};
+      if (filterStatus && filterStatus !== 'All') {
+        queryParams.status = filterStatus;
+      }
+      if (search) {
+        queryParams.search = search;
+      }
 
-  const totalApproved  = expenses.filter(e => e.status === "Approved").reduce((s, e) => s + e.amount, 0);
-  const totalPending   = expenses.filter(e => e.status === "Pending").reduce((s, e) => s + e.amount, 0);
-  const totalClaims    = expenses.length;
-  const pendingCount   = expenses.filter(e => e.status === "Pending").length;
+      const res: any = await apiGet("/tour-expenses", queryParams);
+      const mapped = (res.data || []).map((r: any) => {
+        const emp = r.employee || {};
+        return {
+          id: r.claim_code,
+          employee: emp.name || "Unknown",
+          company: emp.company?.name || "—",
+          dept: emp.department || "—",
+          branch: emp.office?.name || "—",
+          purpose: r.purpose,
+          from: r.from_location,
+          to: r.to_location,
+          startDate: r.start_date ? new Date(r.start_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : "—",
+          endDate: r.end_date ? new Date(r.end_date).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : "—",
+          amount: parseFloat(r.amount) || 0,
+          status: r.status ? (r.status.charAt(0).toUpperCase() + r.status.slice(1)) as ExpenseStatus : "Pending",
+          category: r.category,
+          receipts: r.receipts || [],
+          submittedOn: r.created_at ? new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : "—",
+          remarks: r.remarks || "",
+          approvedBy: r.approver?.name || "",
+          rejectedReason: r.rejected_reason || "",
+          db_id: r.id,
+        };
+      });
+      setExpenses(mapped);
+      setStats({
+        totalClaims: res.stats.totalClaims || 0,
+        totalApproved: res.stats.totalApproved || 0,
+        totalPending: res.stats.totalPending || 0,
+        pendingCount: res.stats.pendingCount || 0
+      });
+    } catch (err) {
+      console.error("Failed to fetch claims:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [filterStatus, search]);
 
-  const handleApprove = () => {
+  const fetchPolicy = useCallback(async () => {
+    try {
+      const res: any = await apiGet("/tour-expenses/policy");
+      setPolicies((res.policies || []).map((p: any) => ({
+        label: p.label,
+        limit: p.limit_detail,
+        note: p.note
+      })));
+      setGeneralRules(res.generalRules || "");
+    } catch (err) {
+      console.error("Failed to fetch policy:", err);
+    }
+  }, []);
+
+  const handleExportPDF = () => {
     if (!selected) return;
-    setExpenses(prev => prev.map(e => e.id === selected.id ? { ...e, status: "Approved", approvedBy: "Current User" } : e));
-    setSelected(prev => prev ? { ...prev, status: "Approved", approvedBy: "Current User" } : null);
-  };
+    const doc = new jsPDF();
+    
+    // Theme Colors
+    const primaryColor = [15, 23, 42]; // slate-900
+    const secondaryColor = [241, 245, 249]; // slate-100
+    const accentColor = [132, 204, 22]; // lime-500
+    const textColor = [51, 65, 85]; // slate-700
+    
+    // Header Section
+    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.rect(0, 0, 210, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(20);
+    const companyText = selected.company && selected.company !== "—" ? selected.company.toUpperCase() : "COMPANY";
+    doc.text(companyText, 14, 18);
+    
+    doc.setFontSize(12);
+    doc.text("TOUR EXPENSE VOUCHER", 14, 26);
+    
+    doc.setFontSize(10);
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 34);
+    
+    doc.setFontSize(14);
+    doc.setFont("Helvetica", "bold");
+    doc.text(`Claim #: ${selected.id}`, 140, 26);
+    
+    let currentY = 50;
 
-  const handleReject = () => {
-    if (!selected) return;
-    setExpenses(prev => prev.map(e => e.id === selected.id ? { ...e, status: "Rejected", rejectedReason: rejectReason } : e));
-    setSelected(prev => prev ? { ...prev, status: "Rejected", rejectedReason: rejectReason } : null);
-    setShowReject(false);
-    setRejectReason("");
-  };
-
-  const handleSubmitClaim = () => {
-    const newClaim: Expense = {
-      id: `TE00${expenses.length + 1}`,
-      employee: form.employee || "Unknown User",
-      dept: form.dept || "Unassigned",
-      branch: form.branch,
-      purpose: form.purpose,
-      from: form.from,
-      to: form.to,
-      startDate: form.startDate,
-      endDate: form.endDate,
-      amount: Number(form.amount) || 0,
-      status: "Pending",
-      category: form.category,
-      receipts: form.receipts,
-      submittedOn: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
-      remarks: form.notes
+    // Helper for section headers
+    const addSectionHeader = (title: string, y: number) => {
+      doc.setFillColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+      doc.rect(14, y - 6, 182, 10, 'F');
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setFontSize(11);
+      doc.setFont("Helvetica", "bold");
+      doc.text(title.toUpperCase(), 18, y + 1);
+      return y + 12;
     };
-    setExpenses([newClaim, ...expenses]);
-    setShowAdd(false);
-    setForm({
-      employee: "", dept: "", branch: BRANCHES[0], purpose: "", from: "", to: "",
-      startDate: "", endDate: "", category: EXPENSE_CATEGORIES[0], amount: "", notes: "", receipts: []
-    });
+
+    // Employee Information
+    currentY = addSectionHeader("Employee Information", currentY);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.setFontSize(10);
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Name:`, 18, currentY);
+    doc.setFont("Helvetica", "bold");
+    doc.text(selected.employee, 50, currentY);
+    
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Department:`, 110, currentY);
+    doc.setFont("Helvetica", "bold");
+    doc.text(selected.dept, 140, currentY);
+    currentY += 8;
+
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Branch/Location:`, 18, currentY);
+    doc.setFont("Helvetica", "bold");
+    doc.text(selected.branch, 50, currentY);
+    currentY += 16;
+
+    // Tour Details
+    currentY = addSectionHeader("Tour & Travel Details", currentY);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.setFontSize(10);
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Purpose:`, 18, currentY);
+    doc.setFont("Helvetica", "bold");
+    doc.text(selected.purpose, 50, currentY);
+    currentY += 8;
+
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Route:`, 18, currentY);
+    doc.setFont("Helvetica", "bold");
+    doc.text(`${selected.from} to ${selected.to}`, 50, currentY);
+    
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Duration:`, 110, currentY);
+    doc.setFont("Helvetica", "bold");
+    doc.text(`${selected.startDate} - ${selected.endDate}`, 140, currentY);
+    currentY += 8;
+
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Category:`, 18, currentY);
+    doc.setFont("Helvetica", "bold");
+    doc.text(selected.category, 50, currentY);
+    currentY += 16;
+
+    // Financials & Status
+    currentY = addSectionHeader("Financials & Status", currentY);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.setFontSize(10);
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Claim Amount:`, 18, currentY);
+    doc.setFont("Helvetica", "bold");
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    doc.setFontSize(12);
+    doc.text(`Rs ${selected.amount.toLocaleString()}`, 50, currentY);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+    doc.setFont("Helvetica", "normal");
+    doc.text(`Current Status:`, 110, currentY);
+    doc.setFont("Helvetica", "bold");
+    
+    // Status color
+    if (selected.status === 'Approved') doc.setTextColor(16, 185, 129); // emerald-500
+    else if (selected.status === 'Rejected') doc.setTextColor(244, 63, 94); // rose-500
+    else doc.setTextColor(245, 158, 11); // amber-500
+    
+    doc.text(selected.status.toUpperCase(), 140, currentY);
+    currentY += 16;
+
+    // Receipts
+    doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    if (selected.receipts && selected.receipts.length > 0) {
+      currentY = addSectionHeader("Attached Receipts", currentY) + 2;
+      
+      autoTable(doc, {
+        startY: currentY,
+        head: [["Receipt Name", "File Type", "File Size"]],
+        body: selected.receipts.map(r => [r.name, r.type || "N/A", r.size || "N/A"]),
+        theme: "striped",
+        styles: { fontSize: 9, font: "Helvetica", cellPadding: 4 },
+        headStyles: { fillColor: [15, 23, 42], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        margin: { left: 14, right: 14 }
+      });
+      
+      // @ts-ignore
+      currentY = doc.lastAutoTable.finalY + 16;
+    } else {
+      currentY = addSectionHeader("Attached Receipts", currentY);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+      doc.setFont("Helvetica", "italic");
+      doc.setFontSize(9);
+      doc.text("No receipts or attachments provided with this claim.", 18, currentY);
+      currentY += 16;
+    }
+
+    // Footer signature lines
+    if (currentY > 250) {
+      doc.addPage();
+      currentY = 40;
+    }
+    
+    doc.setDrawColor(203, 213, 225); // slate-300
+    doc.line(14, currentY, 80, currentY);
+    doc.line(130, currentY, 196, currentY);
+    
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text("Employee Signature", 30, currentY + 5);
+    doc.text("Authorized Approver", 145, currentY + 5);
+
+    // Footer Text
+    doc.setFontSize(7);
+    doc.text("HRMS SYSTEM GENERATED DOCUMENT", 105, 285, { align: "center" });
+
+    doc.save(`Claim_${selected.id}.pdf`);
+  };
+
+  useEffect(() => {
+    fetchClaims();
+  }, [fetchClaims]);
+
+  useEffect(() => {
+    fetchPolicy();
+  }, [fetchPolicy]);
+
+  // Set default values for onboarding form using current user info
+  useEffect(() => {
+    if (user) {
+      setForm(prev => ({
+        ...prev,
+        employee: user.name || "",
+        dept: user.department || "",
+        branch: user.branch || BRANCHES[0]
+      }));
+    }
+  }, [user, showAdd]);
+
+  const handleApprove = async () => {
+    if (!selected || !selected.db_id) return;
+    try {
+      await apiPost(`/tour-expenses/${selected.db_id}/approve`);
+      fetchClaims();
+      setSelected(null);
+    } catch (err) {
+      console.error("Failed to approve claim:", err);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!selected || !selected.db_id) return;
+    try {
+      await apiPost(`/tour-expenses/${selected.db_id}/reject`, {
+        rejected_reason: rejectReason,
+      });
+      fetchClaims();
+      setShowReject(false);
+      setRejectReason("");
+      setSelected(null);
+    } catch (err) {
+      console.error("Failed to reject claim:", err);
+    }
+  };
+
+  const handleSubmitClaim = async () => {
+    try {
+      const payload = {
+        purpose: form.purpose,
+        from_location: form.from,
+        to_location: form.to,
+        start_date: form.startDate,
+        end_date: form.endDate,
+        amount: Number(form.amount) || 0,
+        category: form.category,
+        receipts: form.receipts,
+        remarks: form.notes,
+      };
+      await apiPost("/tour-expenses", payload);
+      fetchClaims();
+      setShowAdd(false);
+      setForm({
+        employee: user?.name || "",
+        dept: user?.department || "",
+        branch: user?.branch || BRANCHES[0],
+        purpose: "",
+        from: "",
+        to: "",
+        startDate: "",
+        endDate: "",
+        category: EXPENSE_CATEGORIES[0],
+        amount: "",
+        notes: "",
+        receipts: []
+      });
+    } catch (err) {
+      console.error("Failed to submit claim:", err);
+    }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,18 +414,64 @@ export default function TourExpensesPage() {
     setForm(prev => ({ ...prev, receipts: prev.receipts.filter(r => r.id !== id) }));
   };
 
-  const handleSavePolicy = () => {
+  const handleSavePolicy = async () => {
+    let newPolicies;
     if (editingPolicyIndex !== null) {
-      setPolicies(prev => prev.map((p, i) => i === editingPolicyIndex ? policyForm : p));
+      newPolicies = policies.map((p, i) => i === editingPolicyIndex ? policyForm : p);
     } else {
-      setPolicies(prev => [...prev, policyForm]);
+      newPolicies = [...policies, policyForm];
     }
-    setShowPolicyDialog(false);
+    try {
+      const res: any = await apiPut("/tour-expenses/policy", {
+        policies: newPolicies,
+        generalRules: generalRules
+      });
+      setPolicies((res.policies || []).map((p: any) => ({
+        label: p.label,
+        limit: p.limit_detail,
+        note: p.note
+      })));
+      setShowPolicyDialog(false);
+    } catch (err) {
+      console.error("Failed to save policy:", err);
+    }
   };
 
-  const handleDeletePolicy = (index: number) => {
-    setPolicies(prev => prev.filter((_, i) => i !== index));
+  const handleDeletePolicy = async (index: number) => {
+    const newPolicies = policies.filter((_, i) => i !== index);
+    try {
+      const res: any = await apiPut("/tour-expenses/policy", {
+        policies: newPolicies,
+        generalRules: generalRules
+      });
+      setPolicies((res.policies || []).map((p: any) => ({
+        label: p.label,
+        limit: p.limit_detail,
+        note: p.note
+      })));
+    } catch (err) {
+      console.error("Failed to delete policy:", err);
+    }
   };
+
+  const handleSaveGeneralRules = async (text: string) => {
+    try {
+      const res: any = await apiPut("/tour-expenses/policy", {
+        policies: policies,
+        generalRules: text
+      });
+      setGeneralRules(res.generalRules || "");
+      setIsEditingGeneral(false);
+    } catch (err) {
+      console.error("Failed to save general rules:", err);
+    }
+  };
+
+  const filtered = expenses;
+  const totalApproved = stats.totalApproved;
+  const totalPending = stats.totalPending;
+  const totalClaims = stats.totalClaims;
+  const pendingCount = stats.pendingCount;
 
   return (
     <div className="space-y-8 pb-20">
@@ -394,7 +709,7 @@ export default function TourExpensesPage() {
                       onChange={e => setGeneralRules(e.target.value)}
                     />
                     <div className="flex justify-end gap-1">
-                       <Button size="sm" className="h-6 text-[8px] bg-amber-500 hover:bg-amber-600 text-white uppercase" onClick={() => setIsEditingGeneral(false)}>Save</Button>
+                       <Button size="sm" className="h-6 text-[8px] bg-amber-500 hover:bg-amber-600 text-white uppercase" onClick={() => handleSaveGeneralRules(generalRules)}>Save</Button>
                     </div>
                   </div>
                 ) : (
@@ -518,7 +833,7 @@ export default function TourExpensesPage() {
                       </Button>
                     </>
                   )}
-                  <Button variant="outline" className="font-black uppercase text-[9px] tracking-widest h-11 rounded-xl border-slate-100 text-slate-500 hover:bg-slate-50">
+                  <Button variant="outline" onClick={handleExportPDF} className="font-black uppercase text-[9px] tracking-widest h-11 rounded-xl border-slate-100 text-slate-500 hover:bg-slate-50">
                     <Download className="h-3.5 w-3.5 mr-2" /> Export PDF
                   </Button>
                 </div>

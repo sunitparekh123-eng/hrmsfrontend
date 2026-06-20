@@ -536,7 +536,7 @@ export default function OnboardingPage() {
                 formDataUpload.append("types", JSON.stringify(types));
 
                 try {
-                    const uploadRes = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/documents/upload/multiple/${result.id}`, {
+                    const uploadRes = await fetch(`http://localhost:5000/api/v1/documents/upload/multiple/${result.id}`, {
                         method: "POST",
                         headers: { Authorization: `Bearer ${token}` },
                         body: formDataUpload,
@@ -578,7 +578,7 @@ export default function OnboardingPage() {
         setOfferLetterPreviewing(true);
         try {
             const token = localStorage.getItem("hrms_auth_token");
-            const res = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/letters/offer-letter/${createdEmployee.id}/preview`, {
+            const res = await fetch(`http://localhost:5000/api/v1/letters/offer-letter/${createdEmployee.id}/preview`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) {
@@ -602,7 +602,7 @@ export default function OnboardingPage() {
         setOfferLetterSendingError(null);
         try {
             const token = localStorage.getItem("hrms_auth_token");
-            const res = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/letters/offer-letter/${createdEmployee.id}/send`, {
+            const res = await fetch(`http://localhost:5000/api/v1/letters/offer-letter/${createdEmployee.id}/send`, {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -650,71 +650,28 @@ export default function OnboardingPage() {
                             <CardHeader className="px-0 pt-0 pb-6 border-b border-slate-50">
                                 <CardTitle className="text-lg font-black text-slate-900 italic tracking-tighter uppercase flex items-center gap-2">
                                     <FileText className="h-5 w-5 text-amber-500" />
-                                    Offer Letter
+                                    Generate Offer Letter
                                 </CardTitle>
                                 <CardDescription className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                                    Preview, edit missing fields, and send the offer letter to {createdEmployee.email}
+                                    Head over to the Letters module to generate and send a perfectly formatted Offer Letter for {createdEmployee.email}.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="px-0 py-6 space-y-4">
-                                {offerLetterSendingError && (
-                                    <div className="p-4 bg-red-50 border-2 border-red-200 rounded-2xl">
-                                        <div className="flex items-start gap-2">
-                                            <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                                            <p className="text-[9px] font-black text-red-600 uppercase tracking-widest">{offerLetterSendingError}</p>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {offerLetterSent && (
-                                    <div className="p-4 bg-emerald-50 border-2 border-emerald-200 rounded-2xl">
-                                        <div className="flex items-start gap-2">
-                                            <CheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
-                                            <div>
-                                                <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Offer Letter Sent!</p>
-                                                <p className="text-[8px] font-bold text-emerald-500 mt-1">
-                                                    The offer letter has been emailed to {createdEmployee.email}. The employee can also view it in the HRMS portal.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
                                 <div className="grid grid-cols-1 gap-3">
                                     <Button
-                                        onClick={handlePreviewOfferLetter}
-                                        disabled={offerLetterPreviewing}
+                                        onClick={() => router.push(`/letters?employeeId=${createdEmployee.id}&templateType=offer_letter`)}
                                         className="h-12 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 font-black text-[10px] uppercase tracking-widest border border-amber-200 transition-all flex items-center justify-center gap-2"
                                     >
-                                        {offerLetterPreviewing ? (
-                                            <><Loader2 className="h-4 w-4 animate-spin" /> Generating Preview...</>
-                                        ) : (
-                                            <><Eye className="h-4 w-4" /> View Offer Letter</>
-                                        )}
+                                        <Eye className="h-4 w-4" /> Go to Letters Module
                                     </Button>
                                     <Button
-                                        onClick={handleSendOfferLetter}
-                                        disabled={offerLetterSending || offerLetterSent}
-                                        className="h-12 rounded-xl bg-slate-900 text-white hover:bg-black font-black text-[10px] uppercase tracking-[0.3em] shadow-2xl shadow-slate-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                        onClick={() => router.push('/employees')}
+                                        className="h-12 rounded-xl bg-slate-900 text-white hover:bg-black font-black text-[10px] uppercase tracking-[0.3em] shadow-2xl shadow-slate-200 transition-all flex items-center justify-center gap-2"
                                     >
-                                        {offerLetterSending ? (
-                                            <><Loader2 className="h-4 w-4 animate-spin" /> Sending...</>
-                                        ) : offerLetterSent ? (
-                                            <><CheckCircle className="h-4 w-4" /> Sent!</>
-                                        ) : (
-                                            <><Send className="h-4 w-4" /> Send Offer Letter to Email</>
-                                        )}
+                                        Go to Employees List
                                     </Button>
                                 </div>
                             </CardContent>
-                            <CardFooter className="px-0 pb-0 pt-6 border-t border-slate-50 flex justify-center">
-                                <Button
-                                    onClick={handleGoToEmployees}
-                                    className="h-12 px-8 rounded-xl bg-white border-2 border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-black text-[10px] uppercase tracking-widest transition-all flex items-center gap-2"
-                                >
-                                    Go to Employees <ChevronRight className="h-4 w-4" />
-                                </Button>
-                            </CardFooter>
                         </Card>
                     </div>
                 ) : (

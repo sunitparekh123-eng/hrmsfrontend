@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { apiGet, apiPost, apiPatch } from "@/lib/api-client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const cn = (...c: string[]) => c.filter(Boolean).join(" ");
 
@@ -302,6 +304,179 @@ export default function LoansPage() {
     }
   };
 
+  const handleDownloadReceipt = () => {
+    if (!selected) return;
+
+    const doc = new jsPDF({ orientation: "landscape", format: "a5" });
+
+    // Premium Corporate Styling
+    // Top border bar
+    doc.setFillColor(15, 23, 42); // slate-900
+    doc.rect(0, 0, 210, 6, "F");
+
+    // Company Header
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(selected.branch ? `TRIPTAY LOGISTICS` : "COMPANY NAME", 15, 18);
+    
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(100, 116, 139);
+    doc.text("FINANCE & ACCOUNTS DEPARTMENT", 15, 23);
+
+    // Document Title
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("LOAN DISBURSEMENT VOUCHER", 195, 18, { align: "right" });
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Voucher No: LN-${selected.id.toString().padStart(4, '0')}`, 195, 23, { align: "right" });
+
+    // Divider
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.5);
+    doc.line(15, 28, 195, 28);
+
+    // Two-column details
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("EMPLOYEE DETAILS", 15, 36);
+    doc.text("LOAN DETAILS", 110, 36);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+
+    // Col 1
+    doc.text("Name:", 15, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(selected.employee, 40, 42);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    doc.text("Department:", 15, 48);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(selected.dept, 40, 48);
+
+    // Col 2
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    doc.text("Applied On:", 110, 42);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(selected.appliedOn, 135, 42);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    doc.text("Disbursed On:", 110, 48);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(selected.disbursedOn || 'N/A', 135, 48);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    doc.text("Status:", 110, 54);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text(selected.status.toUpperCase(), 135, 54);
+
+    // Beautiful Table
+    autoTable(doc, {
+      startY: 60,
+      head: [["Description", "Details", "Description", "Details"]],
+      body: [
+        [
+          "Loan Category", selected.type,
+          "Principal Disbursed", `Rs. ${selected.principal.toLocaleString('en-IN')}`
+        ],
+        [
+          "Interest Rate", `${selected.interestRate}% P.A.`,
+          "Repayment Tenure", `${selected.tenureMonths} Months`
+        ],
+        [
+          "Monthly EMI", `Rs. ${selected.emi.toLocaleString('en-IN')}`,
+          "Total Payable", `Rs. ${(selected.emi * selected.tenureMonths).toLocaleString('en-IN')}`
+        ]
+      ],
+      theme: "grid",
+      headStyles: { 
+        fillColor: [15, 23, 42], // slate-900
+        textColor: [255, 255, 255],
+        fontSize: 8, 
+        fontStyle: "bold",
+        halign: 'left'
+      },
+      bodyStyles: { 
+        fontSize: 8, 
+        textColor: [15, 23, 42],
+        fillColor: [255, 255, 255],
+        lineColor: [226, 232, 240],
+        lineWidth: 0.1,
+        cellPadding: 3
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 40, fillColor: [248, 250, 252] },
+        1: { cellWidth: 50 },
+        2: { fontStyle: 'bold', cellWidth: 40, fillColor: [248, 250, 252] },
+        3: { cellWidth: 50 }
+      },
+      margin: { left: 15, right: 15 }
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY || 100;
+
+    // Terms & Conditions block
+    doc.setFillColor(248, 250, 252); // bg-slate-50
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(15, finalY + 6, 180, 22, "FD");
+    
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("Terms & Conditions:", 18, finalY + 12);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(71, 85, 105);
+    doc.text("1. This amount will be deducted from your monthly salary as per the EMI schedule.", 18, finalY + 17);
+    doc.text("2. In case of full & final settlement, outstanding loan amount will be recovered immediately.", 18, finalY + 21);
+    doc.text("3. This is a computer generated receipt and does not require a physical stamp.", 18, finalY + 25);
+
+    // Signatures
+    doc.setDrawColor(203, 213, 225); // slate-300
+    doc.setLineWidth(0.5);
+    
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const sigY = pageHeight - 18; // line position
+
+    // Employee Sig
+    doc.line(15, sigY, 65, sigY);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("Employee Signature", 15, sigY + 5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text("Date: ____________", 15, sigY + 10);
+
+    // Admin Sig
+    doc.line(145, sigY, 195, sigY);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(15, 23, 42);
+    doc.text("Authorized Signatory", 145, sigY + 5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text("Finance Department", 145, sigY + 10);
+
+    doc.save(`Loan_Voucher_${selected.id}.pdf`);
+  };
+
   return (
     <ProtectedRoute module="LOANS" action="READ">
       <div className="space-y-8 pb-20">
@@ -523,15 +698,15 @@ export default function LoansPage() {
               <CardContent className="p-5 space-y-3">
                 <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                   <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">L1 (Junior Staff)</p>
-                  <p className="font-black text-slate-900 text-sm">₹ 1,00,000</p>
+                  <p className="font-black text-slate-900 text-sm">₹ 50,000</p>
                 </div>
                 <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                   <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">L2 (Managers)</p>
-                  <p className="font-black text-slate-900 text-sm">₹ 5,00,000</p>
+                  <p className="font-black text-slate-900 text-sm">₹ 50,000</p>
                 </div>
                 <div className="flex justify-between items-center">
                   <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">L3 (Directors/VP)</p>
-                  <p className="font-black text-slate-900 text-sm">₹ 15,00,000</p>
+                  <p className="font-black text-slate-900 text-sm">₹ 50,000</p>
                 </div>
                 <Button variant="outline" className="w-full mt-2 h-8 rounded-lg font-black uppercase text-[8px] tracking-widest">Update Limits</Button>
               </CardContent>
@@ -721,7 +896,7 @@ export default function LoansPage() {
                         <CreditCard className="h-3.5 w-3.5 mr-2" /> Record Manual EMI
                       </Button>
                     )}
-                    <Button variant="outline" className="font-black uppercase text-[9px] tracking-widest h-11 rounded-xl border-slate-100 text-slate-500 hover:bg-slate-50">
+                    <Button variant="outline" onClick={handleDownloadReceipt} className="font-black uppercase text-[9px] tracking-widest h-11 rounded-xl border-slate-100 text-slate-500 hover:bg-slate-50">
                       <Download className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -814,7 +989,14 @@ export default function LoansPage() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-4">
                       <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest w-32 shrink-0 text-right">Amount (₹)</label>
-                      <Input type="number" value={form.principal} onChange={e => setForm(prev => ({ ...prev, principal: e.target.value }))} className="h-9 bg-white border-slate-200 rounded-lg font-bold text-xs" />
+                      <Input type="number" max="50000" value={form.principal} onChange={e => {
+                        const val = Number(e.target.value);
+                        if (val > 50000) {
+                          setForm(prev => ({ ...prev, principal: "50000" }));
+                        } else {
+                          setForm(prev => ({ ...prev, principal: e.target.value }));
+                        }
+                      }} className="h-9 bg-white border-slate-200 rounded-lg font-bold text-xs" />
                     </div>
                     <div className="flex items-center gap-4">
                       <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest w-32 shrink-0 text-right">Interest Rate</label>

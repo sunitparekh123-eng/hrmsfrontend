@@ -94,6 +94,15 @@ export default function SettingsPage() {
                             </TabsTrigger>
                         ))}
                     </TabsList>
+                    <div className="ml-4 pl-4 border-l border-slate-100 flex items-center">
+                        <Button 
+                            variant="ghost" 
+                            className="font-black text-[9px] uppercase tracking-widest text-slate-500 hover:text-slate-900 gap-2"
+                            onClick={() => window.location.href = '/settings/signatures'}
+                        >
+                            <SettingsIcon className="h-3.5 w-3.5" /> Manage Signatories
+                        </Button>
+                    </div>
                 </div>
 
                 <TabsContent value="profile" className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">

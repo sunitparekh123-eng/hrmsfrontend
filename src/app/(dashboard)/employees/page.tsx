@@ -30,7 +30,8 @@ import {
     Copy,
     ClipboardCheck,
     Loader2,
-    CheckCircle2
+    CheckCircle2,
+    FileSpreadsheet
 } from "lucide-react";
 import {
     Card,
@@ -68,6 +69,7 @@ import {
 } from "@/components/ui/dialog";
 import { apiGet, apiPatch, apiDelete, apiPut } from "@/lib/api-client";
 import { toFrontendEmployee, type BackendEmployee, type FrontendEmployee } from "@/lib/transform";
+import { BulkImportModal } from "@/components/BulkImportModal";
 
 export default function EmployeesPage() {
     const { hasPermission } = useRole();
@@ -86,6 +88,9 @@ export default function EmployeesPage() {
     const [resetLoading, setResetLoading] = useState(false);
     const [resetResult, setResetResult] = useState<{ name: string; password: string; copied: boolean } | null>(null);
     const [resetTarget, setResetTarget] = useState<FrontendEmployee | null>(null);
+
+    // Bulk Import state
+    const [importDialogOpen, setImportDialogOpen] = useState(false);
 
     useEffect(() => {
         async function fetchLookups() {
@@ -214,11 +219,20 @@ export default function EmployeesPage() {
                     </div>
 
                     {hasPermission('EMPLOYEES', 'CREATE') && (
-                        <Link href="/onboarding">
-                            <Button className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[10px] tracking-widest px-8 h-12 rounded-xl shadow-lg transition-all flex items-center gap-3">
-                                <Plus className="h-5 w-5 stroke-[3]" /> Add New Employee
+                        <div className="flex items-center gap-3">
+                            <Button 
+                                onClick={() => setImportDialogOpen(true)}
+                                variant="outline" 
+                                className="border-slate-200 text-slate-600 hover:bg-slate-50 font-black uppercase text-[10px] tracking-widest px-6 h-12 rounded-xl shadow-sm transition-all flex items-center gap-2"
+                            >
+                                <FileSpreadsheet className="h-4 w-4" /> Import Excel
                             </Button>
-                        </Link>
+                            <Link href="/onboarding">
+                                <Button className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[10px] tracking-widest px-8 h-12 rounded-xl shadow-lg transition-all flex items-center gap-3">
+                                    <Plus className="h-5 w-5 stroke-[3]" /> Add New Employee
+                                </Button>
+                            </Link>
+                        </div>
                     )}
                 </div>
 
@@ -481,6 +495,17 @@ export default function EmployeesPage() {
                     ) : null}
                 </DialogContent>
             </Dialog>
+
+            {/* Bulk Import Modal */}
+            {hasPermission('EMPLOYEES', 'CREATE') && (
+                <BulkImportModal 
+                    open={importDialogOpen} 
+                    onOpenChange={setImportDialogOpen} 
+                    companies={companies} 
+                    offices={offices} 
+                    onSuccess={() => window.location.reload()} 
+                />
+            )}
         </ProtectedRoute>
     );
 }

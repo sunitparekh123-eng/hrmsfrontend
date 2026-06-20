@@ -22,81 +22,34 @@ import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
-// Shared Math Logic from Main Payroll Sheet
-const calculateProductionNet = (row: any) => {
-    const daysInMonth = 28; // Extracted from client sheet
-    const payableDays = daysInMonth - (row.absentDays || 0);
-
-    // Fixed Structure
-    const fixedBasic = Math.round(row.fixedGross * 0.40);
-    const fixedHra = Math.round(fixedBasic * 0.40);
-    const fixedOther = row.fixedGross - fixedBasic - fixedHra;
-
-    // Prorated Structure
-    const basic = Math.round((fixedBasic / daysInMonth) * payableDays);
-    const hra = Math.round((fixedHra / daysInMonth) * payableDays);
-    const other = Math.round((fixedOther / daysInMonth) * payableDays);
-
-    const proratedGross = basic + hra + other;
-    const totalEarnings = proratedGross + (row.previousArrears || 0) + (row.bonus || 0) + (row.incentive || 0);
-
-    // Deductions
-    let pf = 0;
-    if (row.pfApplicable) {
-        const pfBasic = row.pfCeiling ? Math.min(basic, 15000) : basic;
-        pf = Math.round(pfBasic * 0.12);
-    }
-
-    let esi = 0;
-    if (row.esicApplicable) {
-        esi = Math.ceil(totalEarnings * 0.0075);
-    }
-
-    let pt = 0;
-    if (proratedGross > 33333) pt = 208;
-    else if (proratedGross > 25000) pt = 167;
-    else if (proratedGross > 15000) pt = 125;
-
-    const grossDeductions = pf + esi + pt + (row.loanDeduction || 0) + (row.otherDeduction || 0);
-    const net = totalEarnings - grossDeductions;
-
-    // Employer Contribution
-    const pfEmployer = pf;
-    const esiEmployer = row.esicApplicable ? Math.ceil(totalEarnings * 0.0325) : 0;
-    const totalMonthlyCTC = totalEarnings + pfEmployer + esiEmployer;
-
-    return {
-        basic,
-        hra,
-        other,
-        proratedGross,
-        totalEarnings,
-        pf,
-        esi,
-        pt,
-        grossDeductions,
-        net,
-        pfEmployer,
-        esiEmployer,
-        totalMonthlyCTC
-    };
-};
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 
 export default function PayrollAnalyticsPage() {
     const [searchQuery, setSearchQuery] = useState("");
+    const [selectedCompany, setSelectedCompany] = useState("ALL");
     const [employees, setEmployees] = useState<any[]>([]);
+    const [dbCompanies, setDbCompanies] = useState<{ id: number; name: string }[]>([]);
     const [loading, setLoading] = useState(true);
     const [cycleMonth, setCycleMonth] = useState("CURRENT");
-    const TOTAL_MONTH_DAYS = 28; // Standard Excel Billing Cycle Days
 
     useEffect(() => {
         const load = async () => {
             setLoading(true);
             try {
-                const data = await apiGet<{ cycle: any; rows: any[] }>("/payroll/ledger");
+                const [data, comps] = await Promise.all([
+                    apiGet<{ cycle: any; rows: any[] }>("/payroll/ledger"),
+                    apiGet<{ id: number; name: string }[]>("/companies")
+                ]);
                 setEmployees(data.rows || []);
+                setDbCompanies(comps || []);
                 if (data.cycle) {
-                    setCycleMonth(`${data.cycle.month} ${data.cycle.year}`);
+                    setCycleMonth(String(data.cycle.month).includes(String(data.cycle.year)) ? data.cycle.month : `${data.cycle.month} ${data.cycle.year}`);
                 }
             } catch (e) {
                 console.error("Failed to load analytics:", e);
@@ -107,38 +60,72 @@ export default function PayrollAnalyticsPage() {
         load();
     }, []);
 
-    // Calculations based on 100% accurate client Excel math
+    // Calculations are now 100% powered by backend considering all Phase 8 edge cases
     const processedData = employees.map(emp => {
-        const res = calculateProductionNet(emp);
-        const payableDays = TOTAL_MONTH_DAYS - emp.absentDays;
-
-        // Dynamic Company Cost / Day = Prorated Total Monthly CTC divided by cycle days
-        const dailyCost = Math.round(res.totalMonthlyCTC / TOTAL_MONTH_DAYS);
-
-        // Earned Liability (Payout to pay employee till today)
-        const earnedTillDate = res.net;
-
-        // Projected Monthly Liability (Full Cost to Company)
-        const projectedMonthly = res.totalMonthlyCTC;
-
         return {
             ...emp,
-            dailyCost,
-            earnedTillDate,
-            projectedMonthly,
-            payableDays,
+            dailyCost: emp.dailyCost || 0,
+            earnedTillDate: emp.net || 0,
+            projectedMonthly: emp.projectedMonthly || 0,
+            payableDays: emp.payableDays || 0,
+            dynamicDays: emp.dynamicDays || 28,
             fixedGross: emp.fixedGross
         };
     });
 
-    const totalDailyCompanyCost = processedData.reduce((acc, curr) => acc + curr.dailyCost, 0);
-    const totalEarnedTillDate = processedData.reduce((acc, curr) => acc + curr.earnedTillDate, 0);
-    const totalProjectedLiability = processedData.reduce((acc, curr) => acc + curr.projectedMonthly, 0);
+    const activeCompaniesSet = new Set(processedData.map(e => e.company).filter(Boolean));
+    const activeCompanies = Array.from(activeCompaniesSet);
 
-    const filteredData = processedData.filter(emp =>
-        emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        emp.employeeCode.toLowerCase().includes(searchQuery.toLowerCase())
+    // Merge companies from DB with companies found in payroll rows (in case a company was deleted but is in payroll)
+    const allUniqueCompanies = Array.from(
+        new Set([
+            ...dbCompanies.map(c => c.name),
+            ...activeCompanies
+        ])
     );
+
+    const companies = ["ALL", ...allUniqueCompanies];
+
+    const filteredData = processedData.filter(emp => {
+        const matchesSearch = emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              emp.employeeCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                              (emp.company && emp.company.toLowerCase().includes(searchQuery.toLowerCase()));
+        const matchesCompany = selectedCompany === "ALL" || emp.company === selectedCompany;
+        return matchesSearch && matchesCompany;
+    });
+
+    const totalDailyCompanyCost = filteredData.reduce((acc, curr) => acc + curr.dailyCost, 0);
+    const totalEarnedTillDate = filteredData.reduce((acc, curr) => acc + curr.earnedTillDate, 0);
+    const totalProjectedLiability = filteredData.reduce((acc, curr) => acc + curr.projectedMonthly, 0);
+
+    const handleExport = () => {
+        const headers = ["Employee Code", "Name", "Company", "Location", "Designation", "Base CTC", "Cost / Day", "Days Active", "Earned Liability"];
+        const rows = filteredData.map(emp => [
+            emp.employeeCode,
+            emp.name,
+            emp.company || "N/A",
+            emp.location || "N/A",
+            emp.designation || "N/A",
+            emp.fixedGross,
+            emp.dailyCost,
+            `${emp.payableDays} / ${emp.dynamicDays}`,
+            emp.earnedTillDate
+        ]);
+        const csvContent = [
+            headers.join(","),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(","))
+        ].join("\n");
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", `Payroll_Analytics_${cycleMonth.replace(/ /g, "_")}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
 
     return (
         <ProtectedRoute module="PAYROLL" action="READ">
@@ -156,11 +143,12 @@ export default function PayrollAnalyticsPage() {
                     <div className="flex bg-slate-100 p-1 rounded-2xl gap-1">
                         <Button
                             variant="ghost"
-                            className="h-11 px-6 rounded-xl font-black text-[9px] uppercase tracking-widest text-slate-500 hover:bg-white hover:shadow-sm transition-all"
+                            className="h-11 px-6 rounded-xl font-black text-[9px] uppercase tracking-widest text-slate-500 hover:bg-white hover:shadow-sm transition-all pointer-events-none"
                         >
                             <CalendarDays className="h-4 w-4 mr-2" /> {cycleMonth}
                         </Button>
                         <Button
+                            onClick={handleExport}
                             className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[9px] tracking-[0.3em] px-6 h-11 rounded-xl shadow-md hover:translate-y-[-2px] transition-all"
                         >
                             <Download className="h-4 w-4 mr-2" /> Export
@@ -174,7 +162,7 @@ export default function PayrollAnalyticsPage() {
                         { label: "Company Cost / Day", value: totalDailyCompanyCost, icon: Activity, trend: "Daily Burn", color: "bg-[#E0E7FF]", unit: "₹" },
                         { label: "Generated Payout (Till Today)", value: totalEarnedTillDate, icon: Banknote, trend: "+ Accurate", color: "bg-[#D1FAE5]", unit: "₹" },
                         { label: "Projected Monthly Liability", value: totalProjectedLiability, icon: Wallet, trend: "Pending Liability", color: "bg-[#FEE2E2]", unit: "₹" },
-                        { label: "Active Resources", value: employees.length, icon: Users, trend: "Workforce", color: "bg-[#FEF3C7]", unit: "Staff", bypass: true },
+                        { label: "Active Resources", value: filteredData.length, icon: Users, trend: "Workforce", color: "bg-[#FEF3C7]", unit: "Staff", bypass: true },
                     ].map((s, i) => (
                         <Card
                             key={i}
@@ -210,20 +198,28 @@ export default function PayrollAnalyticsPage() {
                             <CardTitle className="text-lg font-black italic text-slate-900 underline underline-offset-4 decoration-[#D9F99D] decoration-2 uppercase tracking-tighter">Deep Cost Breakdown</CardTitle>
                             <CardDescription className="text-[8px] font-black text-slate-400 mt-4 uppercase tracking-[0.3em] italic">Per Employee Cost & Liability Metrics</CardDescription>
                         </div>
-                        <div className="flex items-center gap-4 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
-                            <div className="relative min-w-[200px] group">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
-                                <Input
-                                    placeholder="Search Employee..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="h-10 pl-10 pr-4 rounded-xl bg-white border-none shadow-sm font-bold text-[10px] focus:ring-2 ring-indigo-100"
-                                />
+                            <div className="flex items-center gap-4 bg-slate-50 p-1.5 rounded-2xl border border-slate-100">
+                                <div className="relative min-w-[200px] group">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+                                    <Input
+                                        placeholder="Search Employee..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="h-10 pl-10 pr-4 rounded-xl bg-white border-none shadow-sm font-bold text-[10px] focus:ring-2 ring-indigo-100"
+                                    />
+                                </div>
+                                <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+                                    <SelectTrigger className="h-10 px-4 rounded-xl border-none bg-white shadow-sm font-black uppercase text-[9px] tracking-widest text-slate-900 w-[180px]">
+                                        <Filter className="h-3.5 w-3.5 mr-2 text-slate-400" />
+                                        <SelectValue placeholder="Company" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {companies.map(c => (
+                                            <SelectItem key={c as string} value={c as string} className="text-[10px] font-bold uppercase tracking-wider">{c}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
-                            <Button variant="outline" className="h-10 px-4 rounded-xl border-none bg-white shadow-sm font-black uppercase text-[9px] tracking-widest text-slate-900 hover:bg-slate-100 transition-colors">
-                                <Filter className="h-3.5 w-3.5 mr-2" /> Filter
-                            </Button>
-                        </div>
                     </CardHeader>
                     <CardContent className="mt-4 p-0">
                         <Table>
@@ -260,11 +256,11 @@ export default function PayrollAnalyticsPage() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col gap-1.5">
-                                                <span className="text-[10px] font-black text-slate-900">{emp.payableDays} <span className="text-slate-400">/ {TOTAL_MONTH_DAYS}</span></span>
+                                                <span className="text-[10px] font-black text-slate-900">{emp.payableDays} <span className="text-slate-400">/ {emp.dynamicDays}</span></span>
                                                 <div className="h-1.5 w-full max-w-[80px] bg-slate-100 rounded-full overflow-hidden">
                                                     <div
                                                         className="h-full bg-[#D9F99D] rounded-full"
-                                                        style={{ width: `${(emp.payableDays / TOTAL_MONTH_DAYS) * 100}%` }}
+                                                        style={{ width: `${(emp.payableDays / emp.dynamicDays) * 100}%` }}
                                                     />
                                                 </div>
                                             </div>
