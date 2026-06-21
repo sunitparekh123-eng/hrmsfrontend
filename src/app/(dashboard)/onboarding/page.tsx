@@ -536,7 +536,7 @@ export default function OnboardingPage() {
                 formDataUpload.append("types", JSON.stringify(types));
 
                 try {
-                    const uploadRes = await fetch(`http://localhost:5000/api/v1/documents/upload/multiple/${result.id}`, {
+                    const uploadRes = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/documents/upload/multiple/${result.id}`, {
                         method: "POST",
                         headers: { Authorization: `Bearer ${token}` },
                         body: formDataUpload,
@@ -578,7 +578,7 @@ export default function OnboardingPage() {
         setOfferLetterPreviewing(true);
         try {
             const token = localStorage.getItem("hrms_auth_token");
-            const res = await fetch(`http://localhost:5000/api/v1/letters/offer-letter/${createdEmployee.id}/preview`, {
+            const res = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/letters/offer-letter/${createdEmployee.id}/preview`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) {
@@ -602,7 +602,7 @@ export default function OnboardingPage() {
         setOfferLetterSendingError(null);
         try {
             const token = localStorage.getItem("hrms_auth_token");
-            const res = await fetch(`http://localhost:5000/api/v1/letters/offer-letter/${createdEmployee.id}/send`, {
+            const res = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/letters/offer-letter/${createdEmployee.id}/send`, {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${token}`,

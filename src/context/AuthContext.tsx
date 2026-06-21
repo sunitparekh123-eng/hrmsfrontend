@@ -131,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // --------------------------------------------------
   const login = useCallback(async (email: string, password: string) => {
     // Use bare fetch to avoid the interceptor (which needs auth to exist)
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://hrmsbackend-z7do.onrender.com/api/v1";
 
     const res = await fetch(`${API_URL}/auth/login`, {
       method: "POST",
@@ -174,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // logout — tells backend, clears local state
   // --------------------------------------------------
   const logout = useCallback(async () => {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://hrmsbackend-z7do.onrender.com/api/v1";
     const token = getToken();
     try {
       // Fire-and-forget to backend; bare fetch to avoid interceptor
