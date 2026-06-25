@@ -88,6 +88,7 @@ export default function EmployeesPage() {
     const [resetLoading, setResetLoading] = useState(false);
     const [resetResult, setResetResult] = useState<{ name: string; password: string; copied: boolean } | null>(null);
     const [resetTarget, setResetTarget] = useState<FrontendEmployee | null>(null);
+    const [customPassword, setCustomPassword] = useState("");
 
     // Bulk Import state
     const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -156,7 +157,7 @@ export default function EmployeesPage() {
     };
 
     const deleteEmployee = async (emp: FrontendEmployee) => {
-        if (!window.confirm(`PERMANENTLY DELETE ${emp.name} (${emp.id})? This action cannot be undone. All associated records will be removed.`)) return;
+        if (!window.confirm(`HARD DELETE ${emp.name} (${emp.id})? This is for TESTING ONLY. All associated records will be permanently destroyed.`)) return;
         try {
             await apiDelete(`/employees/${emp.employeeId}`);
             setPersonnel(prev => prev.filter(p => p.employeeId !== emp.employeeId));
@@ -166,19 +167,29 @@ export default function EmployeesPage() {
         }
     };
 
-    const handleAdminResetPassword = async (emp: FrontendEmployee) => {
+    const handleAdminResetPassword = (emp: FrontendEmployee) => {
         setResetTarget(emp);
         setResetResult(null);
+        setCustomPassword("");
         setResetDialogOpen(true);
+    };
+
+    const executeAdminResetPassword = async (useCustom: boolean) => {
+        if (!resetTarget) return;
+        if (useCustom && !customPassword) {
+            alert("Please enter a custom password.");
+            return;
+        }
         setResetLoading(true);
         try {
             const data = await apiPut<{ employee_id: number; emp_code: string; name: string; new_password: string }>(
-                `/employees/${emp.employeeId}/admin-reset-password`
+                `/employees/${resetTarget.employeeId}/admin-reset-password`,
+                { customPassword: useCustom ? customPassword : null }
             );
             setResetResult({ name: data.name, password: data.new_password, copied: false });
         } catch (err) {
             console.error("Failed to reset password:", err);
-            setResetResult({ name: emp.name, password: "", copied: false });
+            setResetResult({ name: resetTarget.name, password: "", copied: false });
             alert("Failed to reset password. Make sure you have admin privileges.");
             setResetDialogOpen(false);
         } finally {
@@ -369,7 +380,9 @@ export default function EmployeesPage() {
                                                                 <DropdownMenuItem className="font-bold text-[9px] uppercase tracking-widest p-2.5 rounded-xl cursor-pointer">View Profile</DropdownMenuItem>
                                                             </Link>
                                                             {hasPermission('EMPLOYEES', 'UPDATE') && (
-                                                                <DropdownMenuItem onClick={() => toggleStatus(emp)} className="font-bold text-[9px] uppercase tracking-widest p-2.5 rounded-xl cursor-pointer">Toggle Status</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => toggleStatus(emp)} className={cn("font-bold text-[9px] uppercase tracking-widest p-2.5 rounded-xl cursor-pointer", emp.status === 'Active' ? 'text-amber-600' : 'text-emerald-600')}>
+                                                                    {emp.status === 'Active' ? 'Deactivate Employee' : 'Activate Employee'}
+                                                                </DropdownMenuItem>
                                                             )}
                                                             {hasPermission('EMPLOYEES', 'UPDATE') && (
                                                                 <DropdownMenuItem onClick={() => handleAdminResetPassword(emp)} className="font-bold text-[9px] uppercase tracking-widest p-2.5 rounded-xl cursor-pointer text-indigo-600">
@@ -378,7 +391,7 @@ export default function EmployeesPage() {
                                                                 </DropdownMenuItem>
                                                             )}
                                                             {hasPermission('EMPLOYEES', 'DELETE') && (
-                                                                <DropdownMenuItem onClick={() => deleteEmployee(emp)} className="font-bold text-[9px] uppercase tracking-widest p-2.5 rounded-xl text-rose-500 cursor-pointer">Delete Permanently</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => deleteEmployee(emp)} className="font-bold text-[9px] uppercase tracking-widest p-2.5 rounded-xl text-rose-500 cursor-pointer">Hard Delete (Testing)</DropdownMenuItem>
                                                             )}
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
@@ -437,7 +450,7 @@ export default function EmployeesPage() {
             </div>
 
             {/* Admin Reset Password Dialog */}
-            <Dialog open={resetDialogOpen} onOpenChange={(open) => { if (!open) { setResetDialogOpen(false); setResetResult(null); setResetTarget(null); } }}>
+            <Dialog open={resetDialogOpen} onOpenChange={(open) => { if (!open) { setResetDialogOpen(false); setResetResult(null); setResetTarget(null); setCustomPassword(""); } }}>
                 <DialogContent className="sm:max-w-[460px] border-none shadow-2xl rounded-3xl p-8">
                     {resetLoading ? (
                         <div className="flex flex-col items-center justify-center py-12 space-y-4">
@@ -445,7 +458,7 @@ export default function EmployeesPage() {
                                 <Loader2 className="h-6 w-6 text-indigo-600 animate-spin" />
                             </div>
                             <p className="text-sm font-bold text-slate-500 uppercase tracking-widest">Resetting Password...</p>
-                            <p className="text-[10px] text-slate-400">Generating new password for {resetTarget?.name}</p>
+                            <p className="text-[10px] text-slate-400">Updating password for {resetTarget?.name}</p>
                         </div>
                     ) : resetResult ? (
                         <>
@@ -491,6 +504,51 @@ export default function EmployeesPage() {
                                     Done
                                 </Button>
                             </DialogFooter>
+                        </>
+                    ) : resetTarget ? (
+                        <>
+                            <DialogHeader className="space-y-2 text-center">
+                                <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100">
+                                    <KeyRound className="h-6 w-6 text-indigo-600" />
+                                </div>
+                                <DialogTitle className="text-xl font-black text-slate-900">Reset Password</DialogTitle>
+                                <p className="text-xs text-slate-500">
+                                    Reset password for <span className="font-bold text-slate-700">{resetTarget.name}</span>
+                                </p>
+                            </DialogHeader>
+                            <div className="mt-6 space-y-4">
+                                <div>
+                                    <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Custom Password (Optional)</Label>
+                                    <Input
+                                        type="text"
+                                        placeholder="Enter custom password..."
+                                        value={customPassword}
+                                        onChange={(e) => setCustomPassword(e.target.value)}
+                                        className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold"
+                                    />
+                                </div>
+                                <div className="flex flex-col gap-3 pt-2">
+                                    <Button
+                                        onClick={() => executeAdminResetPassword(true)}
+                                        disabled={!customPassword}
+                                        className="bg-indigo-600 text-white hover:bg-indigo-700 font-black uppercase text-[10px] tracking-widest h-12 rounded-xl shadow-lg transition-all"
+                                    >
+                                        Set Custom Password
+                                    </Button>
+                                    <div className="relative flex items-center py-2">
+                                        <div className="flex-grow border-t border-slate-100"></div>
+                                        <span className="flex-shrink-0 mx-4 text-[10px] font-black text-slate-300 uppercase tracking-widest">OR</span>
+                                        <div className="flex-grow border-t border-slate-100"></div>
+                                    </div>
+                                    <Button
+                                        onClick={() => executeAdminResetPassword(false)}
+                                        variant="outline"
+                                        className="border-slate-200 text-slate-600 hover:bg-slate-50 font-black uppercase text-[10px] tracking-widest h-12 rounded-xl transition-all"
+                                    >
+                                        Auto-Generate Password
+                                    </Button>
+                                </div>
+                            </div>
                         </>
                     ) : null}
                 </DialogContent>

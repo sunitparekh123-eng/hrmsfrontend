@@ -108,7 +108,9 @@ export default function LettersPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [candidateMode, setCandidateMode] = useState(false);
   const [candidateData, setCandidateData] = useState({
-    name: '', email: '', designation: '', department: '', office: '', company: '', date_of_joining: '', fixed_gross: '', basic_salary: ''
+    name: '', email: '', designation: '', department: '', office: '', company: '', date_of_joining: '', fixed_gross: '',
+    pf_applicable: true, pf_ceiling: true, pf_contribution_mode: 'shared', pf_employer_rate: 0.12, pf_employee_rate: 0.12,
+    esic_applicable: true, esic_contribution_mode: 'shared', esic_employer_rate: 0.0325, esic_employee_rate: 0.0075
   });
 
   // Action state
@@ -315,7 +317,7 @@ export default function LettersPage() {
       const employeeId = !candidateMode ? parseInt(selectedEmployee, 10) : undefined;
       const content = editedContent || previewData?.content || "";
       const token = typeof window !== "undefined" ? localStorage.getItem("hrms_auth_token") : null;
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://hrmsbackend-z7do.onrender.com/api/v1";
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://187.127.187.27.nip.io/api/v1";
 
       const previewContainer = document.getElementById("pdf-preview-container");
       const fullHtml = previewContainer ? previewContainer.outerHTML : "";
@@ -755,10 +757,60 @@ export default function LettersPage() {
                           </select>
                         </div>
                         <div style={{ display: 'flex', gap: 8 }}>
-                          <input type="text" placeholder="Basic Salary" value={candidateData.basic_salary} onChange={(e) => setCandidateData({...candidateData, basic_salary: e.target.value})} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#fff', outline: 'none' }} />
-                          <input type="text" placeholder="Gross Salary" value={candidateData.fixed_gross} onChange={(e) => setCandidateData({...candidateData, fixed_gross: e.target.value})} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#fff', outline: 'none' }} />
+                          <input type="number" placeholder="Monthly Gross CTC" value={candidateData.fixed_gross} onChange={(e) => setCandidateData({...candidateData, fixed_gross: e.target.value})} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#fff', outline: 'none' }} />
+                          <input type="date" placeholder="Date of Joining" value={candidateData.date_of_joining} onChange={(e) => setCandidateData({...candidateData, date_of_joining: e.target.value})} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#fff', outline: 'none' }} />
                         </div>
-                        <input type="date" placeholder="Date of Joining" value={candidateData.date_of_joining} onChange={(e) => setCandidateData({...candidateData, date_of_joining: e.target.value})} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '8px 12px', fontSize: 10, color: '#fff', outline: 'none' }} />
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <label style={{ fontSize: 9, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4, width: '100px' }}>
+                            <input type="checkbox" checked={candidateData.pf_applicable} onChange={e => setCandidateData({...candidateData, pf_applicable: e.target.checked})} /> PF Applicable
+                          </label>
+                          {candidateData.pf_applicable && (
+                            <label style={{ fontSize: 9, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <input type="checkbox" checked={candidateData.pf_ceiling} onChange={e => setCandidateData({...candidateData, pf_ceiling: e.target.checked})} /> ₹15k Ceiling
+                            </label>
+                          )}
+                          {candidateData.pf_applicable && (
+                            <select value={candidateData.pf_contribution_mode} onChange={e => setCandidateData({...candidateData, pf_contribution_mode: e.target.value})} style={{ flex: 1, minWidth: 100, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '4px 8px', fontSize: 9, color: '#fff' }}>
+                              <option value="shared" style={{ background: '#1e293b' }}>Shared (Both)</option>
+                              <option value="employer_only" style={{ background: '#1e293b' }}>Employer Only</option>
+                              <option value="employee_only" style={{ background: '#1e293b' }}>Employee Only</option>
+                              <option value="none" style={{ background: '#1e293b' }}>None</option>
+                            </select>
+                          )}
+                          {candidateData.pf_applicable && candidateData.pf_contribution_mode !== 'none' && (
+                            <div style={{ display: 'flex', gap: 4, width: '100%' }}>
+                              {(candidateData.pf_contribution_mode === 'shared' || candidateData.pf_contribution_mode === 'employer_only') && (
+                                <input type="number" step="0.01" placeholder="Employer Rate (0.12)" value={candidateData.pf_employer_rate} onChange={(e) => setCandidateData({...candidateData, pf_employer_rate: parseFloat(e.target.value)})} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '4px 8px', fontSize: 9, color: '#fff', outline: 'none' }} />
+                              )}
+                              {(candidateData.pf_contribution_mode === 'shared' || candidateData.pf_contribution_mode === 'employee_only') && (
+                                <input type="number" step="0.01" placeholder="Employee Rate (0.12)" value={candidateData.pf_employee_rate} onChange={(e) => setCandidateData({...candidateData, pf_employee_rate: parseFloat(e.target.value)})} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '4px 8px', fontSize: 9, color: '#fff', outline: 'none' }} />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <label style={{ fontSize: 9, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4, width: '100px' }}>
+                            <input type="checkbox" checked={candidateData.esic_applicable} onChange={e => setCandidateData({...candidateData, esic_applicable: e.target.checked})} /> ESIC Applicable
+                          </label>
+                          {candidateData.esic_applicable && (
+                            <select value={candidateData.esic_contribution_mode} onChange={e => setCandidateData({...candidateData, esic_contribution_mode: e.target.value})} style={{ flex: 1, minWidth: 100, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '4px 8px', fontSize: 9, color: '#fff' }}>
+                              <option value="shared" style={{ background: '#1e293b' }}>Shared (Both)</option>
+                              <option value="employer_only" style={{ background: '#1e293b' }}>Employer Only</option>
+                              <option value="employee_only" style={{ background: '#1e293b' }}>Employee Only</option>
+                              <option value="none" style={{ background: '#1e293b' }}>None</option>
+                            </select>
+                          )}
+                          {candidateData.esic_applicable && candidateData.esic_contribution_mode !== 'none' && (
+                            <div style={{ display: 'flex', gap: 4, width: '100%' }}>
+                              {(candidateData.esic_contribution_mode === 'shared' || candidateData.esic_contribution_mode === 'employer_only') && (
+                                <input type="number" step="0.0001" placeholder="Employer Rate (0.0325)" value={candidateData.esic_employer_rate} onChange={(e) => setCandidateData({...candidateData, esic_employer_rate: parseFloat(e.target.value)})} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '4px 8px', fontSize: 9, color: '#fff', outline: 'none' }} />
+                              )}
+                              {(candidateData.esic_contribution_mode === 'shared' || candidateData.esic_contribution_mode === 'employee_only') && (
+                                <input type="number" step="0.0001" placeholder="Employee Rate (0.0075)" value={candidateData.esic_employee_rate} onChange={(e) => setCandidateData({...candidateData, esic_employee_rate: parseFloat(e.target.value)})} style={{ flex: 1, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, padding: '4px 8px', fontSize: 9, color: '#fff', outline: 'none' }} />
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )}

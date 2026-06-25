@@ -7,7 +7,7 @@ import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 // ---------------------------------------------------------------------------
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "https://hrmsbackend-z7do.onrender.com/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "https://187.127.187.27.nip.io/api/v1";
 
 const TOKEN_KEY = "hrms_auth_token";
 const REFRESH_KEY = "hrms_refresh_token";

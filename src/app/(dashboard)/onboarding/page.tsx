@@ -8,6 +8,7 @@ import {
     ArrowLeft,
     Upload,
     CheckCircle,
+    Calculator,
     FileText,
     ShieldCheck,
     Loader2,
@@ -127,7 +128,7 @@ const validateField = (id: string, value: string): string | null => {
             }
             return null;
         case "doj":
-            // joining date can be future — no strict validation
+            if (!v) return "Date of joining is required";
             return null;
         case "aadhaar":
             if (v && !AADHAAR_RE.test(v)) return "Aadhaar must be exactly 12 digits";
@@ -140,10 +141,12 @@ const validateField = (id: string, value: string): string | null => {
             return null;
         // ── Step 1: Job Details ──
         case "jobTitle":
-            if (v && v.length > 80) return "Job title must be under 80 characters";
+            if (!v) return "Job title is required";
+            if (v.length > 80) return "Job title must be under 80 characters";
             return null;
         case "dept":
-            if (v && v.length > 80) return "Department must be under 80 characters";
+            if (!v) return "Department is required";
+            if (v.length > 80) return "Department must be under 80 characters";
             return null;
         case "emergencyName":
             if (v && v.length > 100) return "Must be under 100 characters";
@@ -331,8 +334,8 @@ export default function OnboardingPage() {
         emergencyName: "",
         emergencyRelation: "",
         // Shift configuration
-        shiftStartTime: "09:00",
-        shiftEndTime: "18:00",
+        shiftStartTime: "10:00",
+        shiftEndTime: "19:00",
         halfDayLateMinutes: "60",
     });
 
@@ -536,7 +539,8 @@ export default function OnboardingPage() {
                 formDataUpload.append("types", JSON.stringify(types));
 
                 try {
-                    const uploadRes = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/documents/upload/multiple/${result.id}`, {
+                    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://187.127.187.27.nip.io/api/v1";
+                    const uploadRes = await fetch(`${baseUrl}/documents/upload/multiple/${result.id}`, {
                         method: "POST",
                         headers: { Authorization: `Bearer ${token}` },
                         body: formDataUpload,
@@ -578,7 +582,8 @@ export default function OnboardingPage() {
         setOfferLetterPreviewing(true);
         try {
             const token = localStorage.getItem("hrms_auth_token");
-            const res = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/letters/offer-letter/${createdEmployee.id}/preview`, {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://187.127.187.27.nip.io/api/v1";
+            const res = await fetch(`${baseUrl}/letters/offer-letter/${createdEmployee.id}/preview`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (!res.ok) {
@@ -602,7 +607,8 @@ export default function OnboardingPage() {
         setOfferLetterSendingError(null);
         try {
             const token = localStorage.getItem("hrms_auth_token");
-            const res = await fetch(`https://hrmsbackend-z7do.onrender.com/api/v1/letters/offer-letter/${createdEmployee.id}/send`, {
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://187.127.187.27.nip.io/api/v1";
+            const res = await fetch(`${baseUrl}/letters/offer-letter/${createdEmployee.id}/send`, {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -625,6 +631,101 @@ export default function OnboardingPage() {
 
     const handleGoToEmployees = () => {
         router.push("/employees");
+    };
+
+    const renderSalaryPreview = () => {
+        const fixedGross = Number(formData.fixedGross) || 0;
+        if (fixedGross <= 0) return null;
+
+        const basic = Math.round(fixedGross * 0.40);
+        const hra = Math.round(basic * 0.40);
+        const other = fixedGross - basic - hra;
+
+        let pfBase = basic;
+        if (formData.pfApplicable === "Yes" && formData.pfCeiling === "Yes") {
+            pfBase = Math.min(basic, 15000);
+        }
+
+        let pfEmployee = 0;
+        let pfEmployer = 0;
+        if (formData.pfApplicable === "Yes") {
+            const pEmpRate = parseFloat(formData.pfEmployeeRate) || 0.12;
+            const pEmprRate = parseFloat(formData.pfEmployerRate) || 0.12;
+            if (formData.pfContributionMode === "shared") {
+                pfEmployee = Math.round(pfBase * pEmpRate);
+                pfEmployer = Math.round(pfBase * pEmprRate);
+            } else if (formData.pfContributionMode === "employee_only") {
+                pfEmployee = Math.round(pfBase * pEmpRate);
+            } else if (formData.pfContributionMode === "employer_only") {
+                pfEmployer = Math.round(pfBase * pEmprRate);
+            }
+        }
+
+        let esiEmployee = 0;
+        let esiEmployer = 0;
+        if (formData.esicApplicable === "Yes") {
+            const eEmpRate = parseFloat(formData.esicEmployeeRate) || 0.0075;
+            const eEmprRate = parseFloat(formData.esicEmployerRate) || 0.0325;
+            if (formData.esicContributionMode === "shared") {
+                esiEmployee = Math.ceil(fixedGross * eEmpRate);
+                esiEmployer = Math.ceil(fixedGross * eEmprRate);
+            } else if (formData.esicContributionMode === "employee_only") {
+                esiEmployee = Math.ceil(fixedGross * eEmpRate);
+            } else if (formData.esicContributionMode === "employer_only") {
+                esiEmployer = Math.ceil(fixedGross * eEmprRate);
+            }
+        }
+
+        const totalDeductions = pfEmployee + esiEmployee;
+        const netSalary = fixedGross - totalDeductions;
+        const ctc = fixedGross + pfEmployer + esiEmployer;
+
+        return (
+            <div className="mt-8 p-6 bg-slate-900 rounded-[2rem] text-white shadow-xl animate-in slide-in-from-bottom-4">
+                <div className="flex items-center gap-2 mb-6">
+                    <Calculator className="h-5 w-5 text-[#D9F99D]" />
+                    <h3 className="text-sm font-black italic uppercase tracking-widest text-[#D9F99D]">Live Salary Preview</h3>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 hover:border-slate-600 transition-colors">
+                        <p className="text-[9px] font-black text-white/70 uppercase tracking-widest mb-1">Basic Salary</p>
+                        <p className="text-xl font-black text-white">₹{basic.toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 hover:border-slate-600 transition-colors">
+                        <p className="text-[9px] font-black text-white/70 uppercase tracking-widest mb-1">HRA</p>
+                        <p className="text-xl font-black text-white">₹{hra.toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className="bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 hover:border-slate-600 transition-colors">
+                        <p className="text-[9px] font-black text-white/70 uppercase tracking-widest mb-1">Other Allowances</p>
+                        <p className="text-xl font-black text-white">₹{other.toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className="bg-[#D9F99D]/10 p-4 rounded-2xl border border-[#D9F99D]/20">
+                        <p className="text-[9px] font-black text-[#D9F99D] uppercase tracking-widest mb-1">Net Take Home</p>
+                        <p className="text-xl font-black text-[#D9F99D]">₹{netSalary.toLocaleString('en-IN')}</p>
+                    </div>
+                </div>
+                {(totalDeductions > 0 || pfEmployer > 0 || esiEmployer > 0) && (
+                    <div className="mt-6 pt-6 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <p className="text-[9px] font-black text-white/70 uppercase tracking-widest mb-3">Employee Deductions</p>
+                            <div className="space-y-2 text-xs font-bold text-white/90">
+                                {pfEmployee > 0 && <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded-lg"><span className="text-white/80">PF Contribution</span><span className="text-red-400">- ₹{pfEmployee.toLocaleString('en-IN')}</span></div>}
+                                {esiEmployee > 0 && <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded-lg"><span className="text-white/80">ESIC Contribution</span><span className="text-red-400">- ₹{esiEmployee.toLocaleString('en-IN')}</span></div>}
+                                <div className="flex justify-between items-center font-black text-white p-2"><span className="text-white">Total Deductions</span><span>₹{totalDeductions.toLocaleString('en-IN')}</span></div>
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-[9px] font-black text-white/70 uppercase tracking-widest mb-3">Employer Contributions</p>
+                            <div className="space-y-2 text-xs font-bold text-white/90">
+                                {pfEmployer > 0 && <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded-lg"><span className="text-white/80">PF Contribution</span><span className="text-emerald-400">+ ₹{pfEmployer.toLocaleString('en-IN')}</span></div>}
+                                {esiEmployer > 0 && <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded-lg"><span className="text-white/80">ESIC Contribution</span><span className="text-emerald-400">+ ₹{esiEmployer.toLocaleString('en-IN')}</span></div>}
+                                <div className="flex justify-between items-center font-black text-amber-400 p-2"><span className="text-amber-400">Monthly CTC</span><span>₹{ctc.toLocaleString('en-IN')}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     return (
@@ -1128,40 +1229,44 @@ export default function OnboardingPage() {
                                                     <option value="shared">Shared (Both)</option>
                                                 </select>
                                             </div>
-                                            <div className="space-y-3">
-                                                <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-                                                    PF Employee Rate (Decimal)
-                                                </Label>
-                                                <Input
-                                                    type="number"
-                                                    step="0.0001"
-                                                    min="0"
-                                                    max="1"
-                                                    placeholder="e.g. 0.12 for 12%"
-                                                    className={inputClass("pfEmployeeRate", "h-12 bg-emerald-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-emerald-900")}
-                                                    value={formData.pfEmployeeRate}
-                                                    onChange={(e) => updateField("pfEmployeeRate", e.target.value)}
-                                                    onBlur={() => handleBlur("pfEmployeeRate")}
-                                                />
-                                                {fieldErrorEl("pfEmployeeRate")}
-                                            </div>
-                                            <div className="space-y-3">
-                                                <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
-                                                    PF Employer Rate (Decimal)
-                                                </Label>
-                                                <Input
-                                                    type="number"
-                                                    step="0.0001"
-                                                    min="0"
-                                                    max="1"
-                                                    placeholder="e.g. 0.12 for 12%"
-                                                    className={inputClass("pfEmployerRate", "h-12 bg-emerald-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-emerald-900")}
-                                                    value={formData.pfEmployerRate}
-                                                    onChange={(e) => updateField("pfEmployerRate", e.target.value)}
-                                                    onBlur={() => handleBlur("pfEmployerRate")}
-                                                />
-                                                {fieldErrorEl("pfEmployerRate")}
-                                            </div>
+                                            {(formData.pfContributionMode === "shared" || formData.pfContributionMode === "employee_only") && (
+                                                <div className="space-y-3">
+                                                    <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                                                        PF Employee Rate (Decimal)
+                                                    </Label>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.0001"
+                                                        min="0"
+                                                        max="1"
+                                                        placeholder="e.g. 0.12 for 12%"
+                                                        className={inputClass("pfEmployeeRate", "h-12 bg-emerald-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-emerald-900")}
+                                                        value={formData.pfEmployeeRate}
+                                                        onChange={(e) => updateField("pfEmployeeRate", e.target.value)}
+                                                        onBlur={() => handleBlur("pfEmployeeRate")}
+                                                    />
+                                                    {fieldErrorEl("pfEmployeeRate")}
+                                                </div>
+                                            )}
+                                            {(formData.pfContributionMode === "shared" || formData.pfContributionMode === "employer_only") && (
+                                                <div className="space-y-3">
+                                                    <Label className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                                                        PF Employer Rate (Decimal)
+                                                    </Label>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.0001"
+                                                        min="0"
+                                                        max="1"
+                                                        placeholder="e.g. 0.12 for 12%"
+                                                        className={inputClass("pfEmployerRate", "h-12 bg-emerald-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-emerald-900")}
+                                                        value={formData.pfEmployerRate}
+                                                        onChange={(e) => updateField("pfEmployerRate", e.target.value)}
+                                                        onBlur={() => handleBlur("pfEmployerRate")}
+                                                    />
+                                                    {fieldErrorEl("pfEmployerRate")}
+                                                </div>
+                                            )}
                                             <div className="space-y-3">
                                                 <Label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
                                                     ESIC Contribution Mode
@@ -1172,43 +1277,49 @@ export default function OnboardingPage() {
                                                     onChange={(e) => updateField("esicContributionMode", e.target.value)}
                                                 >
                                                     <option value="none">None (Not Applicable)</option>
+                                                    <option value="employee_only">Employee Only</option>
+                                                    <option value="employer_only">Employer Only</option>
                                                     <option value="shared">Shared (Both)</option>
                                                 </select>
                                             </div>
-                                            <div className="space-y-3">
-                                                <Label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
-                                                    ESIC Employee Rate (Decimal)
-                                                </Label>
-                                                <Input
-                                                    type="number"
-                                                    step="0.0001"
-                                                    min="0"
-                                                    max="1"
-                                                    placeholder="e.g. 0.0075 for 0.75%"
-                                                    className={inputClass("esicEmployeeRate", "h-12 bg-blue-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-blue-900")}
-                                                    value={formData.esicEmployeeRate}
-                                                    onChange={(e) => updateField("esicEmployeeRate", e.target.value)}
-                                                    onBlur={() => handleBlur("esicEmployeeRate")}
-                                                />
-                                                {fieldErrorEl("esicEmployeeRate")}
-                                            </div>
-                                            <div className="space-y-3">
-                                                <Label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
-                                                    ESIC Employer Rate (Decimal)
-                                                </Label>
-                                                <Input
-                                                    type="number"
-                                                    step="0.0001"
-                                                    min="0"
-                                                    max="1"
-                                                    placeholder="e.g. 0.0325 for 3.25%"
-                                                    className={inputClass("esicEmployerRate", "h-12 bg-blue-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-blue-900")}
-                                                    value={formData.esicEmployerRate}
-                                                    onChange={(e) => updateField("esicEmployerRate", e.target.value)}
-                                                    onBlur={() => handleBlur("esicEmployerRate")}
-                                                />
-                                                {fieldErrorEl("esicEmployerRate")}
-                                            </div>
+                                            {(formData.esicContributionMode === "shared" || formData.esicContributionMode === "employee_only") && (
+                                                <div className="space-y-3">
+                                                    <Label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
+                                                        ESIC Employee Rate (Decimal)
+                                                    </Label>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.0001"
+                                                        min="0"
+                                                        max="1"
+                                                        placeholder="e.g. 0.0075 for 0.75%"
+                                                        className={inputClass("esicEmployeeRate", "h-12 bg-blue-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-blue-900")}
+                                                        value={formData.esicEmployeeRate}
+                                                        onChange={(e) => updateField("esicEmployeeRate", e.target.value)}
+                                                        onBlur={() => handleBlur("esicEmployeeRate")}
+                                                    />
+                                                    {fieldErrorEl("esicEmployeeRate")}
+                                                </div>
+                                            )}
+                                            {(formData.esicContributionMode === "shared" || formData.esicContributionMode === "employer_only") && (
+                                                <div className="space-y-3">
+                                                    <Label className="text-[10px] font-black text-blue-500 uppercase tracking-widest">
+                                                        ESIC Employer Rate (Decimal)
+                                                    </Label>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.0001"
+                                                        min="0"
+                                                        max="1"
+                                                        placeholder="e.g. 0.0325 for 3.25%"
+                                                        className={inputClass("esicEmployerRate", "h-12 bg-blue-50 border-none rounded-xl px-5 font-black text-xs uppercase tracking-widest text-blue-900")}
+                                                        value={formData.esicEmployerRate}
+                                                        onChange={(e) => updateField("esicEmployerRate", e.target.value)}
+                                                        onBlur={() => handleBlur("esicEmployerRate")}
+                                                    />
+                                                    {fieldErrorEl("esicEmployerRate")}
+                                                </div>
+                                            )}
                                             <div className="space-y-3">
                                                 <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                                                     PF Number
@@ -1249,6 +1360,9 @@ export default function OnboardingPage() {
                                                 {fieldErrorEl("licDetails")}
                                             </div>
                                         </div>
+
+                                        {renderSalaryPreview()}
+
 
                                         {/* ── Shift Configuration ── */}
                                         <div className="p-6 bg-amber-50/50 rounded-[2rem] border border-amber-100 space-y-5">

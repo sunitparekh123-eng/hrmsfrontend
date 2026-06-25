@@ -22,13 +22,15 @@ import {
     Download,
     ExternalLink,
     Activity,
-    Trash2
+    Trash2,
+    Power,
+    PowerOff
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { apiGet, apiDelete } from "@/lib/api-client";
+import { apiGet, apiDelete, apiPatch } from "@/lib/api-client";
 import { toFrontendEmployee, type BackendEmployee, type FrontendEmployee } from "@/lib/transform";
 
 // ── Types for additional API responses ──
@@ -286,18 +288,42 @@ export default function EmployeeProfilePage() {
                         <Button variant="outline" className="h-10 rounded-xl border-slate-100 text-slate-600 font-black text-[9px] uppercase tracking-widest px-6">
                             <Download className="h-3.5 w-3.5 mr-2" /> ID Card
                         </Button>
+                        {hasPermission('EMPLOYEES', 'UPDATE') && (
+                            <Button 
+                                variant="outline"
+                                onClick={async () => {
+                                    const currentBackendStatus = employee.status === "Active" ? "active" : "inactive";
+                                    const newBackendStatus = currentBackendStatus === "active" ? "inactive" : "active";
+                                    try {
+                                        await apiPatch(`/employees/${employee.employeeId}/status`, { status: newBackendStatus });
+                                        setEmployee({ ...employee, status: newBackendStatus === "active" ? "Active" : "Inactive" });
+                                    } catch (err) {
+                                        console.error("Failed to update status:", err);
+                                        alert("Failed to update employee status.");
+                                    }
+                                }}
+                                className={cn(
+                                    "h-10 rounded-xl border-slate-100 font-black text-[9px] uppercase tracking-widest px-6 flex items-center gap-2",
+                                    employee.status === "Active" ? "text-amber-600 hover:bg-amber-50 hover:border-amber-200" : "text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200"
+                                )}
+                            >
+                                {employee.status === "Active" ? <PowerOff className="h-3.5 w-3.5" /> : <Power className="h-3.5 w-3.5" />}
+                                {employee.status === "Active" ? "Deactivate" : "Activate"}
+                            </Button>
+                        )}
                         {hasPermission('EMPLOYEES', 'DELETE') && (
                             <Button
                                 variant="outline"
                                 onClick={() => {
-                                    if (!window.confirm(`PERMANENTLY DELETE ${employee.name} (${employee.id})? This cannot be undone.`)) return;
+                                    if (!window.confirm(`HARD DELETE ${employee.name} (${employee.id})? This is for TESTING ONLY and cannot be undone.`)) return;
                                     apiDelete(`/employees/${employee.employeeId}`)
                                         .then(() => router.push("/employees"))
                                         .catch((err) => { console.error("Delete failed:", err); alert("Failed to delete. Admin privileges required."); });
                                 }}
                                 className="h-10 rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50 font-black text-[9px] uppercase tracking-widest px-6 flex items-center gap-2"
+                                title="Use Deactivate instead for normal offboarding"
                             >
-                                <Trash2 className="h-3.5 w-3.5" /> Delete
+                                <Trash2 className="h-3.5 w-3.5" /> Hard Delete
                             </Button>
                         )}
                     </div>
