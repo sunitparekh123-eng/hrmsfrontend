@@ -281,7 +281,10 @@ export default function EmployeeProfilePage() {
                     </Button>
                     <div className="flex items-center gap-3">
                         {hasPermission('EMPLOYEES', 'UPDATE') && (
-                            <Button className="bg-slate-900 text-white hover:bg-black font-black text-[9px] uppercase tracking-widest px-8 h-10 rounded-xl shadow-xl transition-all flex items-center gap-2">
+                            <Button 
+                                onClick={() => router.push(`/onboarding?editId=${employee.employeeId}`)}
+                                className="bg-slate-900 text-white hover:bg-black font-black text-[9px] uppercase tracking-widest px-8 h-10 rounded-xl shadow-xl transition-all flex items-center gap-2"
+                            >
                                 <Edit3 className="h-3.5 w-3.5" /> Edit Profile
                             </Button>
                         )}
