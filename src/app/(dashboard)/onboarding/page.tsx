@@ -314,7 +314,7 @@ function OnboardingForm() {
                                 dept: emp.department || "",
                                 doj: emp.date_of_joining ? emp.date_of_joining.split("T")[0] : "",
                                 company: emp.company_id ? emp.company_id.toString() : "",
-                                location: of.find((o: any) => o.name === emp.location)?.id?.toString() || "",
+                                location: emp.office_id ? emp.office_id.toString() : (emp.location ? of.find((o) => o.name === emp.location)?.id?.toString() : "") || "",
                                 fixedGross: currentSalary.fixed_gross?.toString() || emp.fixed_gross?.toString() || "",
                                 bankName: emp.bank_name || "",
                                 accountNo: emp.bank_account_number || "",
