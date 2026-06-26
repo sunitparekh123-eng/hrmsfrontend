@@ -309,7 +309,7 @@ function OnboardingForm() {
                                 gender: emp.gender || "male",
                                 address: emp.address || "",
                                 aadhaar: emp.aadhaar_number || "",
-                                role: emp.role || "EMPLOYEE",
+                                role: emp.role ? emp.role.toUpperCase() : "EMPLOYEE",
                                 jobTitle: emp.designation || "",
                                 dept: emp.department || "",
                                 doj: emp.date_of_joining ? emp.date_of_joining.split("T")[0] : "",
