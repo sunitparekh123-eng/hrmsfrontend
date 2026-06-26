@@ -138,12 +138,12 @@ export function BulkImportModal({ open, onOpenChange, companies, offices, onSucc
             // Build payload exactly as required by the backend
             const payload = {
                 emp_code: empCode,
-                name: String(row["Name (Required)"] || ""),
-                email: String(row["Email (Required)"] || ""),
-                phone: row["Phone"] ? String(row["Phone"]) : null,
+                name: String(row["Name (Required)"] || "").trim(),
+                email: String(row["Email (Required)"] || "").trim(),
+                phone: row["Phone"] ? String(row["Phone"]).trim() : null,
                 password: "Password@123", // Default password per user request
-                designation: row["Designation"] ? String(row["Designation"]) : null,
-                department: row["Department"] ? String(row["Department"]) : null,
+                designation: row["Designation"] ? String(row["Designation"]).trim() : null,
+                department: row["Department"] ? String(row["Department"]).trim() : null,
                 role: "employee", // Default role
                 date_of_joining: row["Date of Joining (YYYY-MM-DD)"] || null,
                 gender: row["Gender (male/female/other)"]?.toLowerCase() || null,
