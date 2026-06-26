@@ -568,6 +568,7 @@ function OnboardingForm() {
         setFieldErrors({});
 
         try {
+            const payload = buildPayload();
             let result: any;
             
             if (isEditing) {
