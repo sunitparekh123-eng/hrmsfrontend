@@ -606,7 +606,7 @@ function OnboardingForm() {
                 formDataUpload.append("types", JSON.stringify(types));
 
                 try {
-                    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://187.127.187.27.nip.io/api/v1";
+                    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.apaarpulse.com/api/v1";
                     const uploadRes = await fetch(`${baseUrl}/documents/upload/multiple/${result.id}`, {
                         method: "POST",
                         headers: { Authorization: `Bearer ${token}` },
@@ -654,7 +654,7 @@ function OnboardingForm() {
         setOfferLetterPreviewing(true);
         try {
             const token = localStorage.getItem("hrms_auth_token");
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://187.127.187.27.nip.io/api/v1";
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.apaarpulse.com/api/v1";
             const res = await fetch(`${baseUrl}/letters/offer-letter/${createdEmployee.id}/preview`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -679,7 +679,7 @@ function OnboardingForm() {
         setOfferLetterSendingError(null);
         try {
             const token = localStorage.getItem("hrms_auth_token");
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://187.127.187.27.nip.io/api/v1";
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.apaarpulse.com/api/v1";
             const res = await fetch(`${baseUrl}/letters/offer-letter/${createdEmployee.id}/send`, {
                 method: "POST",
                 headers: {

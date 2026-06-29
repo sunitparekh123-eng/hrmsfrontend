@@ -317,7 +317,7 @@ export default function LettersPage() {
       const employeeId = !candidateMode ? parseInt(selectedEmployee, 10) : undefined;
       const content = editedContent || previewData?.content || "";
       const token = typeof window !== "undefined" ? localStorage.getItem("hrms_auth_token") : null;
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://187.127.187.27.nip.io/api/v1";
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.apaarpulse.com/api/v1";
 
       const previewContainer = document.getElementById("pdf-preview-container");
       const fullHtml = previewContainer ? previewContainer.outerHTML : "";
