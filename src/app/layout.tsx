@@ -16,6 +16,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "HRMS",
   description: "Modern Human Resource Management System",
+  icons: {
+    icon: "/company_logopng.png",
+    shortcut: "/company_logopng.png",
+    apple: "/company_logopng.png",
+  },
 };
 
 export default function RootLayout({

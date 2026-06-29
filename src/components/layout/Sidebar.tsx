@@ -34,20 +34,20 @@ import {
 } from "@/components/ui/select";
 
 const navigation: { name: string, href: string, icon: any, module: ModuleName }[] = [
-    { name: "Dashboard",     href: "/",               icon: LayoutDashboard, module: 'DASHBOARD'      },
-    { name: "Employees",     href: "/employees",       icon: Users,           module: 'EMPLOYEES'      },
-    { name: "Onboarding",    href: "/onboarding",      icon: UserPlus,        module: 'EMPLOYEES'      },
-    { name: "Attendance",    href: "/attendance",      icon: Clock,           module: 'ATTENDANCE'     },
-    { name: "Locations",     href: "/locations",       icon: MapPin,          module: 'LOCATIONS'      },
-    { name: "Leave",         href: "/leave",           icon: CalendarDays,    module: 'LEAVE'          },
-    { name: "Payroll",       href: "/payroll",         icon: Wallet,          module: 'PAYROLL'        },
-    { name: "Analytics",     href: "/payroll/analytics",icon: PieChart,       module: 'PAYROLL'        },
-    { name: "Loans",         href: "/loans",           icon: Landmark,        module: 'LOANS'          },
-    { name: "Letters",       href: "/letters",         icon: FileType,        module: 'LETTERS'        },
-    { name: "Tour Expenses", href: "/tour-expenses",   icon: Plane,           module: 'TOUR_EXPENSES'  },
-    { name: "Reports",       href: "/reports",         icon: BarChart3,       module: 'REPORTS'        },
-    { name: "Settings",      href: "/settings",        icon: Settings,        module: 'SETTINGS'       },
-    { name: "Role Mgmt",     href: "/settings/roles",  icon: Shield,          module: 'ROLE_MGMT'      },
+    { name: "Dashboard", href: "/", icon: LayoutDashboard, module: 'DASHBOARD' },
+    { name: "Employees", href: "/employees", icon: Users, module: 'EMPLOYEES' },
+    { name: "Onboarding", href: "/onboarding", icon: UserPlus, module: 'EMPLOYEES' },
+    { name: "Attendance", href: "/attendance", icon: Clock, module: 'ATTENDANCE' },
+    { name: "Locations", href: "/locations", icon: MapPin, module: 'LOCATIONS' },
+    { name: "Leave", href: "/leave", icon: CalendarDays, module: 'LEAVE' },
+    { name: "Payroll", href: "/payroll", icon: Wallet, module: 'PAYROLL' },
+    { name: "Analytics", href: "/payroll/analytics", icon: PieChart, module: 'PAYROLL' },
+    { name: "Loans", href: "/loans", icon: Landmark, module: 'LOANS' },
+    { name: "Letters", href: "/letters", icon: FileType, module: 'LETTERS' },
+    { name: "Tour Expenses", href: "/tour-expenses", icon: Plane, module: 'TOUR_EXPENSES' },
+    { name: "Reports", href: "/reports", icon: BarChart3, module: 'REPORTS' },
+    { name: "Settings", href: "/settings", icon: Settings, module: 'SETTINGS' },
+    { name: "Role Mgmt", href: "/settings/roles", icon: Shield, module: 'ROLE_MGMT' },
 ];
 
 export function Sidebar() {
@@ -61,10 +61,12 @@ export function Sidebar() {
         <aside className="hidden lg:flex h-full w-64 flex-col bg-white border-r border-slate-100 shrink-0">
             <div className="flex h-14 items-center px-6">
                 <Link href="/" className="flex items-center gap-2">
-                    <div className="h-6 w-6 flex items-center justify-center">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M12 2L14.83 8.39L21.78 9.53L16.89 14.47L17.94 21.39L12 18.27L6.06 21.39L7.11 14.47L2.22 9.53L9.17 8.39L12 2Z" fill="black" />
-                        </svg>
+                    <div className="h-8 w-8 flex items-center justify-center rounded-lg overflow-hidden bg-slate-50">
+                        <img
+                            src="/company_logopng.png"
+                            alt="Company Logo"
+                            className="h-7 w-7 object-contain"
+                        />
                     </div>
                     <span className="font-bold text-lg tracking-tight text-slate-900 italic underline underline-offset-4 decoration-[#D9F99D]">HRMS</span>
                 </Link>

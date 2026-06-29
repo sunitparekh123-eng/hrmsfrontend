@@ -42,8 +42,12 @@ export default function LoginPage() {
   return (
     <Card className="shadow-lg">
       <CardHeader className="text-center pb-2">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-          <Building2 className="h-6 w-6 text-primary" />
+        <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-2xl overflow-hidden bg-primary/10">
+          <img
+            src="/company_logopng.png"
+            alt="Company Logo"
+            className="h-14 w-14 object-contain"
+          />
         </div>
         <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
         <CardDescription className="text-sm text-muted-foreground">

@@ -138,6 +138,58 @@ export default function AttendancePage() {
         URL.revokeObjectURL(url);
     };
 
+    // Export monthly attendance with per-day columns (Issue 2 fix)
+    // Expands the `grid` string into individual Day 1..Day N columns so the
+    // downloaded file clearly shows which days are present/absent/weekoff/holiday.
+    const exportMonthlyToCSV = (rows: any[], filename: string) => {
+        if (!rows || rows.length === 0) return;
+        const daysInMonth = rows[0]?.grid?.length || 31;
+        const baseHeaders = ["Emp Code", "Name", "Role", "Hub", "Company", "Present", "Week Off", "Leave", "Holiday", "Absent"];
+        const dayHeaders = Array.from({ length: daysInMonth }, (_, i) => `Day ${i + 1}`);
+        const headers = [...baseHeaders, ...dayHeaders];
+
+        const csv = [
+            headers.join(","),
+            ...rows.map((row) => {
+                const grid = row.grid || "";
+                const dayValues = Array.from({ length: daysInMonth }, (_, i) => {
+                    const ch = grid[i] || "-";
+                    // Expand single-letter codes to readable text
+                    switch (ch) {
+                        case "P": return "Present";
+                        case "A": return "Absent";
+                        case "W": return "Week Off";
+                        case "H": return "Holiday";
+                        case "-": return "-";
+                        default: return ch;
+                    }
+                });
+                const baseValues = [
+                    row.id ?? "",
+                    row.name ?? "",
+                    row.role ?? "",
+                    row.hub ?? "",
+                    row.company ?? "",
+                    row.present ?? 0,
+                    row.woff ?? 0,
+                    row.leave ?? 0,
+                    row.holiday ?? 0,
+                    row.absent ?? 0,
+                ];
+                const allValues = [...baseValues, ...dayValues];
+                return allValues.map((v) => `"${(v ?? "").toString().replace(/"/g, '""')}"`).join(",");
+            }),
+        ].join("\n");
+
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${filename}_${new Date().toISOString().split("T")[0]}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
     // Dynamic Calendar State
     const [currentDate] = useState(new Date());
     const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
@@ -177,6 +229,7 @@ export default function AttendancePage() {
     const [liveLoading, setLiveLoading] = useState(false);
     const [livePagination, setLivePagination] = useState({ total: 0, totalPages: 1 });
     const [liveTotalFiltered, setLiveTotalFiltered] = useState(0);
+    const [exportingLive, setExportingLive] = useState(false);
 
     // History tab data
     const [historyData, setHistoryData] = useState<any[]>([]);
@@ -241,6 +294,51 @@ export default function AttendancePage() {
             setLiveLoading(false);
         }
     }, [selectedCompanyId, selectedOfficeId, selectedStatus, debouncedSearch, currentPage]);
+
+    // Export ALL live attendance records (not just the current page).
+    // Loops through every page with the backend's max allowed limit (100)
+    // so the downloaded CSV contains every matching employee regardless of
+    // which page is currently open. No backend restart required.
+    const exportLiveAttendance = async () => {
+        setExportingLive(true);
+        try {
+            const baseParams = {
+                company_id: selectedCompanyId || undefined,
+                office_id: selectedOfficeId || undefined,
+                status: selectedStatus === "All" ? undefined : selectedStatus,
+                search: debouncedSearch || undefined,
+            };
+            // Fetch the first page to discover total page count.
+            const first: any = await apiGet("/attendance/admin/live", {
+                ...baseParams,
+                page: 1,
+                limit: 100,
+            });
+            let allRows: any[] = first.rows || [];
+            const totalPages = first.pagination?.totalPages || 1;
+            // Fetch any remaining pages in parallel.
+            if (totalPages > 1) {
+                const remaining = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+                const results = await Promise.all(
+                    remaining.map((p) =>
+                        apiGet("/attendance/admin/live", { ...baseParams, page: p, limit: 100 })
+                    )
+                );
+                results.forEach((r: any) => {
+                    allRows = allRows.concat(r.rows || []);
+                });
+            }
+            if (allRows.length === 0) {
+                setExportingLive(false);
+                return;
+            }
+            exportToCSV(allRows, "live_attendance");
+        } catch (err) {
+            console.error("Failed to export live attendance:", err);
+        } finally {
+            setExportingLive(false);
+        }
+    };
 
     // Fetch history
     const fetchHistory = useCallback(async (page = historyPage) => {
@@ -477,8 +575,16 @@ export default function AttendancePage() {
                                     <Button variant="outline" className="h-10 w-10 p-0 shrink-0 rounded-xl border-slate-100 hover:bg-slate-50 transition-all" onClick={() => fetchLiveAttendance()}>
                                         <RefreshCw className={cn("h-4 w-4 text-slate-400", liveLoading && "animate-spin")} />
                                     </Button>
-                                    <Button variant="outline" className="h-10 px-4 shrink-0 rounded-xl border-slate-100 font-black text-[9px] uppercase tracking-widest" onClick={() => exportToCSV(attendanceLogs, "live_attendance")}>
-                                        <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-500" /> Export
+                                    <Button variant="outline" className="h-10 px-4 shrink-0 rounded-xl border-slate-100 font-black text-[9px] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed" onClick={exportLiveAttendance} disabled={exportingLive}>
+                                        {exportingLive ? (
+                                            <svg className="animate-spin h-4 w-4 mr-2 text-emerald-500" viewBox="0 0 24 24">
+                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                            </svg>
+                                        ) : (
+                                            <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-500" />
+                                        )}
+                                        {exportingLive ? "Exporting..." : "Export"}
                                     </Button>
                                 </div>
                             </CardHeader>
@@ -973,7 +1079,7 @@ export default function AttendancePage() {
                                                 onChange={(e) => handleMonthlySearchChange(e.target.value)}
                                             />
                                         </div>
-                                        <Button variant="outline" className="h-9 px-4 rounded-xl border-slate-100 font-black text-[9px] uppercase tracking-widest" onClick={() => exportToCSV(monthlyRows, "monthly_attendance")}>
+                                        <Button variant="outline" className="h-9 px-4 rounded-xl border-slate-100 font-black text-[9px] uppercase tracking-widest" onClick={() => exportMonthlyToCSV(monthlyRows, "monthly_attendance")}>
                                             <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-500" /> Export
                                         </Button>
                                     </div>
