@@ -356,7 +356,7 @@ export default function PayrollPage() {
         }
     };
 
-    const generatePayslip = (row: any) => {
+    const generatePayslip = async (row: any) => {
         const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a5' });
         const pNet = calculateProductionNet(row);
         const cycleText = globalRules?.cycle || 'June 2026';
@@ -367,15 +367,27 @@ export default function PayrollPage() {
         const mutedColor: [number, number, number] = [100, 100, 100];
         const lineColor: [number, number, number] = [226, 232, 240]; // slate-200
 
+        // Load logo image
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const tempImg = new Image();
+            tempImg.src = '/company_logopng.png';
+            tempImg.onload = () => resolve(tempImg);
+            tempImg.onerror = (e) => reject(e);
+        }).catch(() => null);
+
         // ── Top Accent Bar ──
         doc.setFillColor(...accentColor);
         doc.rect(0, 0, 210, 4, 'F');
 
         // ── Header ──
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(20);
-        doc.setTextColor(...primaryColor);
-        doc.text("NODE HRMS", 15, 18);
+        if (img) {
+            doc.addImage(img, 'PNG', 15, 6, 28, 12);
+        } else {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(20);
+            doc.setTextColor(...primaryColor);
+            doc.text("NODE HRMS", 15, 18);
+        }
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
@@ -759,14 +771,17 @@ export default function PayrollPage() {
                                                     >
                                                         <History className="h-4 w-4 text-slate-400" />
                                                     </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={() => generatePayslip(row)}
-                                                        className="h-8 rounded-lg border-slate-100 font-black uppercase text-[7px] tracking-widest px-3 hover:bg-[#D9F99D] hover:text-slate-900 hover:border-[#D9F99D] transition-all"
-                                                    >
-                                                        <Download className="h-3 w-3 mr-1.5" /> PDF
-                                                    </Button>
+                                                    <span title={row.status !== "Paid" ? "Payslip is only available after payment status is Paid" : "Download Payslip PDF"}>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => generatePayslip(row)}
+                                                            disabled={row.status !== "Paid"}
+                                                            className="h-8 rounded-lg border-slate-100 font-black uppercase text-[7px] tracking-widest px-3 hover:bg-[#D9F99D] hover:text-slate-900 hover:border-[#D9F99D] transition-all disabled:opacity-30 disabled:pointer-events-none"
+                                                        >
+                                                            <Download className="h-3 w-3 mr-1.5" /> PDF
+                                                        </Button>
+                                                    </span>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right pr-6 w-[60px]">

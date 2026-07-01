@@ -528,7 +528,7 @@ function OnboardingForm() {
             shift_start_time: formData.shiftStartTime || null,
             shift_end_time: formData.shiftEndTime || null,
             half_day_late_minutes: formData.halfDayLateMinutes ? Number(formData.halfDayLateMinutes) : 60,
-            send_offer_letter: true,
+            send_offer_letter: false,
         };
     };
 
@@ -606,7 +606,7 @@ function OnboardingForm() {
                 formDataUpload.append("types", JSON.stringify(types));
 
                 try {
-                    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.apaarpulse.com/api/v1";
+                    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
                     const uploadRes = await fetch(`${baseUrl}/documents/upload/multiple/${result.id}`, {
                         method: "POST",
                         headers: { Authorization: `Bearer ${token}` },
@@ -654,7 +654,7 @@ function OnboardingForm() {
         setOfferLetterPreviewing(true);
         try {
             const token = localStorage.getItem("hrms_auth_token");
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.apaarpulse.com/api/v1";
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
             const res = await fetch(`${baseUrl}/letters/offer-letter/${createdEmployee.id}/preview`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -679,7 +679,7 @@ function OnboardingForm() {
         setOfferLetterSendingError(null);
         try {
             const token = localStorage.getItem("hrms_auth_token");
-            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.apaarpulse.com/api/v1";
+            const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
             const res = await fetch(`${baseUrl}/letters/offer-letter/${createdEmployee.id}/send`, {
                 method: "POST",
                 headers: {

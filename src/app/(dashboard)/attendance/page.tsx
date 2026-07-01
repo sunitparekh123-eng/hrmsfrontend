@@ -195,9 +195,35 @@ export default function AttendancePage() {
     const [selectedMonth, setSelectedMonth] = useState(currentDate.getMonth());
     const [selectedYear, setSelectedYear] = useState(currentDate.getFullYear());
 
-    // Helper to get days in month
-    const getDaysInMonth = (month: number, year: number) => new Date(year, month + 1, 0).getDate();
-    const daysInSelectedMonth = getDaysInMonth(selectedMonth, selectedYear);
+    // Helper to get dates in cycle (26th of previous month to 25th of current month)
+    const getDatesInCycle = (month: number, year: number) => {
+        const dates: Date[] = [];
+        let prevMonthYear = year;
+        let prevMonth = month - 1;
+        if (prevMonth < 0) {
+            prevMonth = 11;
+            prevMonthYear = year - 1;
+        }
+        
+        const start = new Date(prevMonthYear, prevMonth, 26);
+        const end = new Date(year, month, 25);
+        
+        const current = new Date(start);
+        while (current <= end) {
+            dates.push(new Date(current));
+            current.setDate(current.getDate() + 1);
+        }
+        return dates;
+    };
+    const cycleDates = getDatesInCycle(selectedMonth, selectedYear);
+    const daysInSelectedMonth = cycleDates.length;
+    const formatCycleRange = () => {
+        if (!cycleDates || cycleDates.length === 0) return "";
+        const start = cycleDates[0];
+        const end = cycleDates[cycleDates.length - 1];
+        const options: Intl.DateTimeFormatOptions = { day: '2-digit', month: 'short', year: 'numeric' };
+        return `${start.toLocaleDateString('en-GB', options)} - ${end.toLocaleDateString('en-GB', options)} (${cycleDates.length} Days)`;
+    };
     const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
     const monthNames = [
@@ -1039,7 +1065,7 @@ export default function AttendancePage() {
                                         />
                                     </div>
                                     <CardDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2 leading-relaxed">
-                                        {daysInSelectedMonth} Days in {monthNames[selectedMonth]} {selectedYear} <br />
+                                        {formatCycleRange()} <br />
                                         <span className="text-emerald-500">Payable Days</span> = Present + Paid Leave + Weekly Off + Holiday
                                     </CardDescription>
                                     {/* Monthly Filters */}
@@ -1116,8 +1142,7 @@ export default function AttendancePage() {
                                                     <span className="text-rose-600">LWP</span>
                                                 </div>
                                             </th>
-                                            {[...Array(daysInSelectedMonth)].map((_, i) => {
-                                                const dateObj = new Date(selectedYear, selectedMonth, i + 1);
+                                            {cycleDates.map((dateObj, i) => {
                                                 const isToday =
                                                     dateObj.getDate() === currentDate.getDate() &&
                                                     dateObj.getMonth() === currentDate.getMonth() &&
@@ -1127,7 +1152,7 @@ export default function AttendancePage() {
                                                     <th key={i} className={cn("text-center py-4 px-1 min-w-[32px] transition-all", isToday ? "bg-indigo-50 border-b-2 border-b-indigo-500" : "")}>
                                                         <div className="flex flex-col items-center gap-0.5">
                                                             <span className={cn("text-[9px] font-black", isToday ? "text-indigo-700" : "text-slate-900")}>
-                                                                {String(i + 1).padStart(2, '0')}
+                                                                {String(dateObj.getDate()).padStart(2, '0')}
                                                             </span>
                                                             <span className={cn("text-[6px] font-bold uppercase", isToday ? "text-indigo-500" : "text-slate-400")}>
                                                                 {dayNames[dateObj.getDay()]}
@@ -1175,28 +1200,14 @@ export default function AttendancePage() {
                                                         </div>
                                                     </td>
                                                     {/* Day cells */}
-                                                    {[...Array(daysInSelectedMonth)].map((_, dayIdx) => {
+                                                    {cycleDates.map((dateObj, dayIdx) => {
                                                         const status = emp.grid[dayIdx] || '-';
-                                                        const dateObj = new Date(selectedYear, selectedMonth, dayIdx + 1);
                                                         const isToday =
                                                             dateObj.getDate() === currentDate.getDate() &&
                                                             dateObj.getMonth() === currentDate.getMonth() &&
                                                             dateObj.getFullYear() === currentDate.getFullYear();
-                                                        const isFuture = dateObj > currentDate;
-
-                                                        const isPayable = status === 'P' || status === 'H' || status === 'W' || status === 'L';
+                                                        
                                                         const earnedForDay = status === 'A' || status === '-' ? 0 : dailyRate;
-
-                                                        const statusLabel =
-                                                            status === 'P' ? 'Present ✅' :
-                                                                status === 'A' ? 'Absent (LWP) ❌' :
-                                                                    status === 'W' ? 'Weekly Off 🌴' :
-                                                                        status === 'H' ? 'Holiday 🎌' :
-                                                                            status === 'L' ? 'Paid Leave 🏖️' :
-                                                                                status === '-' ? 'Yet to occur ⏳' : 'Unknown';
-
-                                                        const dayAbbr = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dateObj.getDay()];
-
                                                         const tooltipLines = `₹${earnedForDay.toLocaleString('en-IN')}`;
 
                                                         return (

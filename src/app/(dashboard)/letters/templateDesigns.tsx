@@ -194,9 +194,12 @@ const Variant1Layout: React.FC<LetterPreviewProps> = ({
     <div style={{ padding: '40px 60px 60px' }}>
       {/* Header row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f172a', paddingBottom: 20, marginBottom: 32 }}>
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px', textTransform: 'uppercase', color: '#0f172a' }}>{employee?.company || 'TRIPTAY LOGISTICS'}</div>
-          <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase', color: '#64748b', marginTop: 4 }}>Human Resources Department</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <img src="/company_logopng.png" alt="Logo" style={{ height: 42, width: 'auto', objectFit: 'contain' }} />
+          <div>
+            <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px', textTransform: 'uppercase', color: '#0f172a' }}>{employee?.company || 'TRIPTAY LOGISTICS'}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase', color: '#64748b', marginTop: 4 }}>Human Resources Department</div>
+          </div>
         </div>
         <div style={{ textAlign: 'right', fontSize: 10, fontWeight: 600, color: '#475569', lineHeight: 1.8 }}>
           <div>Ref: TL/HR/2026/{templateId}</div>
@@ -252,6 +255,7 @@ const Variant2Layout: React.FC<LetterPreviewProps> = ({
     <div style={{ height: 6, background: accentColor, width: '100%' }} />
     <div style={{ padding: '48px 64px 80px' }}>
       <div style={{ textAlign: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 32, marginBottom: 36 }}>
+        <img src="/company_logopng.png" alt="Logo" style={{ height: 48, width: 'auto', margin: '0 auto 12px', display: 'block', objectFit: 'contain' }} />
         <div style={{ fontSize: 28, fontWeight: 300, letterSpacing: '8px', textTransform: 'uppercase', color: '#1e293b' }}>{employee?.company?.split(' ')[0] || 'TRIPTAY'}</div>
         <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '4px', textTransform: 'uppercase', color: '#94a3b8', marginTop: 4 }}>LOGISTICS · HUMAN RESOURCES</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 20, fontSize: 9, color: '#64748b', fontWeight: 600 }}>
@@ -300,9 +304,12 @@ const Variant3Layout: React.FC<LetterPreviewProps> = ({
   <div style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: '#1e293b', width: 794, minHeight: 1123, background: '#fff', boxSizing: 'border-box', position: 'relative' }}>
     <div style={{ background: '#0f172a', padding: '40px 60px 36px', position: 'relative' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{employee?.company || 'TRIPTAY LOGISTICS'}</div>
-          <div style={{ fontSize: 9, fontWeight: 700, color: accentColor, letterSpacing: '4px', textTransform: 'uppercase', marginTop: 6 }}>Human Resources · Premium Division</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <img src="/company_logopng.png" alt="Logo" style={{ height: 42, width: 'auto', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{employee?.company || 'TRIPTAY LOGISTICS'}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: accentColor, letterSpacing: '4px', textTransform: 'uppercase', marginTop: 6 }}>Human Resources · Premium Division</div>
+          </div>
         </div>
         <div style={{ textAlign: 'right', fontSize: 10, color: '#94a3b8', lineHeight: 1.8 }}>
           <div style={{ color: '#fff', fontWeight: 700 }}>Ref: TL/HR/2026/{templateId}</div>
@@ -352,12 +359,15 @@ const Variant4Layout: React.FC<LetterPreviewProps> = ({
   <div style={{ fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif", color: '#1e293b', width: 794, minHeight: 1123, background: '#fff', boxSizing: 'border-box', position: 'relative', display: 'flex' }}>
     <div style={{ width: 8, background: accentColor, flexShrink: 0 }} />
     <div style={{ flex: 1, padding: '48px 56px 80px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 36 }}>
-        <div style={{ fontSize: 60, fontWeight: 900, color: accentColor, lineHeight: 1, opacity: 0.15, position: 'absolute', top: 20, left: 80 }}>{title.charAt(0)}</div>
-        <div>
-          <div style={{ fontSize: 28, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-1px', color: '#0f172a', position: 'relative', zIndex: 1 }}>{title}</div>
-          <div style={{ fontSize: 9, fontWeight: 700, color: accentColor, letterSpacing: '3px', textTransform: 'uppercase', marginTop: 2 }}>{employee?.company || 'Company'}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 36 }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 16 }}>
+          <div style={{ fontSize: 60, fontWeight: 900, color: accentColor, lineHeight: 1, opacity: 0.15, position: 'absolute', top: 20, left: 80 }}>{title.charAt(0)}</div>
+          <div>
+            <div style={{ fontSize: 28, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '-1px', color: '#0f172a', position: 'relative', zIndex: 1 }}>{title}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: accentColor, letterSpacing: '3px', textTransform: 'uppercase', marginTop: 2 }}>{employee?.company || 'Company'}</div>
+          </div>
         </div>
+        <img src="/company_logopng.png" alt="Logo" style={{ height: 38, width: 'auto', objectFit: 'contain', position: 'relative', zIndex: 1 }} />
       </div>
       <div style={{ display: 'flex', gap: 32, fontSize: 9, color: '#64748b', fontWeight: 600, marginBottom: 32, borderBottom: '1px solid #f1f5f9', paddingBottom: 16 }}>
         <span>Ref: TL/HR/2026/{templateId}</span>
@@ -400,6 +410,7 @@ const Variant5Layout: React.FC<LetterPreviewProps> = ({
   <div style={{ fontFamily: "'Georgia', 'Times New Roman', serif", color: '#1e293b', width: 794, minHeight: 1123, background: '#fff', boxSizing: 'border-box', position: 'relative', padding: 16 }}>
     <div style={{ border: '3px double #0f172a', padding: '40px 52px 70px', minHeight: 'calc(100% - 32px)', position: 'relative', boxSizing: 'border-box' }}>
       <div style={{ textAlign: 'center', borderBottom: '1px solid #0f172a', paddingBottom: 24, marginBottom: 32 }}>
+        <img src="/company_logopng.png" alt="Logo" style={{ height: 42, width: 'auto', margin: '0 auto 8px', display: 'block', objectFit: 'contain' }} />
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '5px', textTransform: 'uppercase', color: '#64748b' }}>{employee?.company || 'TRIPTAY LOGISTICS'}</div>
         <div style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px', color: '#0f172a', marginTop: 12 }}>{title}</div>
         <div style={{ fontSize: 9, color: '#64748b', marginTop: 6 }}>Ref: TL/HR/2026/{templateId} · Date: {employee?.date || '[Date]'}</div>

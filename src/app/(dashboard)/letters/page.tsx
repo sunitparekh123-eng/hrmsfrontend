@@ -317,10 +317,13 @@ export default function LettersPage() {
       const employeeId = !candidateMode ? parseInt(selectedEmployee, 10) : undefined;
       const content = editedContent || previewData?.content || "";
       const token = typeof window !== "undefined" ? localStorage.getItem("hrms_auth_token") : null;
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.apaarpulse.com/api/v1";
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api/v1";
 
       const previewContainer = document.getElementById("pdf-preview-container");
-      const fullHtml = previewContainer ? previewContainer.outerHTML : "";
+      let fullHtml = previewContainer ? previewContainer.outerHTML : "";
+      if (typeof window !== "undefined") {
+        fullHtml = fullHtml.replace(/src="\/company_logopng.png"/g, `src="${window.location.origin}/company_logopng.png"`);
+      }
 
       // Use raw fetch to get the PDF blob (not JSON)
       const response = await fetch(`${baseUrl}/letters/generate-pdf`, {
@@ -386,7 +389,10 @@ export default function LettersPage() {
       const employeeId = !candidateMode ? parseInt(selectedEmployee, 10) : undefined;
       const content = editedContent || previewData?.content || "";
       const previewContainer = document.getElementById("pdf-preview-container");
-      const fullHtml = previewContainer ? previewContainer.outerHTML : "";
+      let fullHtml = previewContainer ? previewContainer.outerHTML : "";
+      if (typeof window !== "undefined") {
+        fullHtml = fullHtml.replace(/src="\/company_logopng.png"/g, `src="${window.location.origin}/company_logopng.png"`);
+      }
 
       await apiPost("/letters/send-email", {
         employee_id: employeeId,

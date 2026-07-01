@@ -104,9 +104,17 @@ export default function CycleDetailsPage({ params }: { params: Promise<{ id: str
         XLSX.writeFile(workbook, `Cycle_Audit_${cycleName}.xlsx`);
     };
 
-    const handleViewPayslips = () => {
+    const handleViewPayslips = async () => {
         if (rawRows.length === 0) return;
         const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a5' });
+
+        // Load logo image
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const tempImg = new Image();
+            tempImg.src = '/company_logopng.png';
+            tempImg.onload = () => resolve(tempImg);
+            tempImg.onerror = (e) => reject(e);
+        }).catch(() => null);
         
         rawRows.forEach((row, index) => {
             if (index > 0) doc.addPage();
@@ -123,10 +131,14 @@ export default function CycleDetailsPage({ params }: { params: Promise<{ id: str
             doc.setFillColor(...accentColor);
             doc.rect(0, 0, 210, 4, 'F');
 
-            doc.setFont("helvetica", "bold");
-            doc.setFontSize(20);
-            doc.setTextColor(...primaryColor);
-            doc.text("NODE HRMS", 15, 18);
+            if (img) {
+                doc.addImage(img, 'PNG', 15, 6, 28, 12);
+            } else {
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(20);
+                doc.setTextColor(...primaryColor);
+                doc.text("NODE HRMS", 15, 18);
+            }
 
             doc.setFontSize(10);
             doc.setFont("helvetica", "bold");
