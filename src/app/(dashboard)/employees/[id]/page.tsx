@@ -242,12 +242,12 @@ export default function EmployeeProfilePage() {
         : [];
 
     const latestReview = reviews.length > 0 ? reviews[0] : null;
-    const reviewScore = latestReview?.overall_score ?? 0;
+    const reviewScore = latestReview?.overall_score != null ? Number(latestReview.overall_score) : 0;
     const reviewStars = starRating(reviewScore);
 
     const totalLeaveAvailable = leaveBalance?.available ?? 0;
     const attendancePct = attendanceStats?.monthly?.attendance_percentage ?? null;
-    const attendancePctDisplay = attendancePct != null ? `${attendancePct.toFixed(1)}%` : "N/A";
+    const attendancePctDisplay = attendancePct != null ? `${Number(attendancePct).toFixed(1)}%` : "N/A";
 
     const grossDisplay = currentSalary?.fixed_gross ?? rawEmployee?.fixed_gross;
 
@@ -569,7 +569,7 @@ export default function EmployeeProfilePage() {
                                                         <Award key={i} className={cn("h-5 w-5", s === 2 ? "fill-current" : s === 1 ? "fill-current opacity-50" : "text-slate-200")} />
                                                     ))}
                                                 </div>
-                                                <span className="text-lg font-black italic text-slate-900 ml-2">{reviewScore.toFixed(1)}<span className="text-[10px] text-slate-400 not-italic">/5.0</span></span>
+                                                <span className="text-lg font-black italic text-slate-900 ml-2">{Number(reviewScore).toFixed(1)}<span className="text-[10px] text-slate-400 not-italic">/5.0</span></span>
                                             </div>
                                         </div>
                                         <div className="space-y-1">
@@ -578,11 +578,11 @@ export default function EmployeeProfilePage() {
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Quality Score</p>
-                                            <p className="text-xs font-black text-slate-900 tracking-widest">{latestReview.quality_score?.toFixed(1) || "N/A"}/5.0</p>
+                                            <p className="text-xs font-black text-slate-900 tracking-widest">{latestReview.quality_score != null ? Number(latestReview.quality_score).toFixed(1) : "N/A"}/5.0</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Delivery Score</p>
-                                            <p className="text-xs font-black text-slate-900 tracking-widest">{latestReview.delivery_score?.toFixed(1) || "N/A"}/5.0</p>
+                                            <p className="text-xs font-black text-slate-900 tracking-widest">{latestReview.delivery_score != null ? Number(latestReview.delivery_score).toFixed(1) : "N/A"}/5.0</p>
                                         </div>
                                     </div>
                                     <div className="bg-slate-50 p-6 rounded-2xl border border-white space-y-4">
@@ -714,7 +714,7 @@ export default function EmployeeProfilePage() {
                                             <Award className="h-3.5 w-3.5 text-amber-400" />
                                         </div>
                                         <p className="text-[10px] font-black text-slate-900 uppercase">Last Review</p>
-                                        <p className="text-[8px] font-bold text-slate-400 mt-1">{formatDate(latestReview.reviewed_at)} — Score: {reviewScore.toFixed(1)}</p>
+                                        <p className="text-[8px] font-bold text-slate-400 mt-1">{formatDate(latestReview.reviewed_at)} — Score: {Number(reviewScore).toFixed(1)}</p>
                                     </div>
                                 )}
                             </div>
