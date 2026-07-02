@@ -224,7 +224,7 @@ export default function PayrollHistoryPage() {
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{b.staff} Staff</span>
-                                                        <span className="text-[10px] font-black italic text-slate-900 w-16 text-right">₹{(b.payout / 1000).toFixed(0)}k</span>
+                                                        <span className="text-[10px] font-black italic text-slate-900 w-16 text-right">₹{(Number(b.payout) / 1000).toFixed(0)}k</span>
                                                     </div>
                                                 </div>
                                             ))}
