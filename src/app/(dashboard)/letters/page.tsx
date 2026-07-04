@@ -434,7 +434,7 @@ export default function LettersPage() {
     designation: candidateData.designation || 'TBD',
     department: candidateData.department || 'TBD',
     office: candidateData.office || 'Head Office',
-    company: candidateData.company || 'Triptay Logistics',
+    company: candidateData.company || 'Apaar Logistics',
     date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
   };
 

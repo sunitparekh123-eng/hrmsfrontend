@@ -40,7 +40,8 @@ import {
     Smartphone,
     Timer,
     Info,
-    Building2
+    Building2,
+    Plane,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -144,8 +145,17 @@ export default function AttendancePage() {
     const exportMonthlyToCSV = (rows: any[], filename: string) => {
         if (!rows || rows.length === 0) return;
         const daysInMonth = rows[0]?.grid?.length || 31;
-        const baseHeaders = ["Emp Code", "Name", "Role", "Hub", "Company", "Present", "Week Off", "Leave", "Holiday", "Absent"];
-        const dayHeaders = Array.from({ length: daysInMonth }, (_, i) => `Day ${i + 1}`);
+        const baseHeaders = ["Emp Code", "Name", "Role", "Hub", "Company", "Present", "Week Off", "Leave", "Holiday", "Tour", "Absent"];
+        const dayHeaders = Array.from({ length: daysInMonth }, (_, i) => {
+            const date = cycleDates[i];
+            if (date) {
+                const yyyy = date.getFullYear();
+                const mm = String(date.getMonth() + 1).padStart(2, '0');
+                const dd = String(date.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            }
+            return `Day ${i + 1}`;
+        });
         const headers = [...baseHeaders, ...dayHeaders];
 
         const csv = [
@@ -154,12 +164,14 @@ export default function AttendancePage() {
                 const grid = row.grid || "";
                 const dayValues = Array.from({ length: daysInMonth }, (_, i) => {
                     const ch = grid[i] || "-";
-                    // Expand single-letter codes to readable text
+                    // Use short forms matching the grid UI
                     switch (ch) {
-                        case "P": return "Present";
-                        case "A": return "Absent";
-                        case "W": return "Week Off";
-                        case "H": return "Holiday";
+                        case "P": return "P";
+                        case "A": return "A";
+                        case "W": return "WO";
+                        case "H": return "H";
+                        case "T": return "T";
+                        case "L": return "L";
                         case "-": return "-";
                         default: return ch;
                     }
@@ -174,6 +186,7 @@ export default function AttendancePage() {
                     row.woff ?? 0,
                     row.leave ?? 0,
                     row.holiday ?? 0,
+                    row.tour ?? 0,
                     row.absent ?? 0,
                 ];
                 const allValues = [...baseValues, ...dayValues];
@@ -204,10 +217,10 @@ export default function AttendancePage() {
             prevMonth = 11;
             prevMonthYear = year - 1;
         }
-        
+
         const start = new Date(prevMonthYear, prevMonth, 26);
         const end = new Date(year, month, 25);
-        
+
         const current = new Date(start);
         while (current <= end) {
             dates.push(new Date(current));
@@ -249,6 +262,17 @@ export default function AttendancePage() {
     const [manualStatus, setManualStatus] = useState("Present");
     const [manualReason, setManualReason] = useState("");
     const [manualSubmitting, setManualSubmitting] = useState(false);
+
+    // Tour Management State
+    const [isTourOpen, setIsTourOpen] = useState(false);
+    const [tourEmpId, setTourEmpId] = useState("");
+    const [tourTitle, setTourTitle] = useState("");
+    const [tourDescription, setTourDescription] = useState("");
+    const [tourFromLocation, setTourFromLocation] = useState("");
+    const [tourToLocation, setTourToLocation] = useState("");
+    const [tourStartDate, setTourStartDate] = useState("");
+    const [tourEndDate, setTourEndDate] = useState("");
+    const [tourSubmitting, setTourSubmitting] = useState(false);
 
     // Live tab data
     const [stats, setStats] = useState({ total: 0, present: 0, absent: 0, late: 0 });
@@ -442,6 +466,46 @@ export default function AttendancePage() {
         }
     };
 
+    // Tour submit — marks employee on tour for a date range (paid, no salary deduction)
+    const handleTourSubmit = async () => {
+        if (!tourEmpId || !tourTitle || !tourStartDate || !tourEndDate) {
+            alert("Employee ID, Title, Start Date and End Date are required.");
+            return;
+        }
+        if (new Date(tourEndDate) < new Date(tourStartDate)) {
+            alert("End date cannot be before start date.");
+            return;
+        }
+        setTourSubmitting(true);
+        try {
+            await apiPost("/attendance/admin/tours", {
+                employeeId: Number(tourEmpId),
+                title: tourTitle,
+                description: tourDescription || undefined,
+                fromLocation: tourFromLocation || undefined,
+                toLocation: tourToLocation || undefined,
+                startDate: tourStartDate,
+                endDate: tourEndDate,
+            });
+            setIsTourOpen(false);
+            setTourEmpId("");
+            setTourTitle("");
+            setTourDescription("");
+            setTourFromLocation("");
+            setTourToLocation("");
+            setTourStartDate("");
+            setTourEndDate("");
+            if (activeTab === "live") fetchLiveAttendance();
+            if (activeTab === "history") fetchHistory();
+            if (activeTab === "monthly") fetchMonthly();
+        } catch (err: any) {
+            console.error("Tour mark failed:", err);
+            alert(err?.response?.data?.message || "Failed to mark tour. Check employee ID.");
+        } finally {
+            setTourSubmitting(false);
+        }
+    };
+
     const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
 
     return (
@@ -455,6 +519,12 @@ export default function AttendancePage() {
                     </div>
 
                     <div className="flex items-center gap-4">
+                        <Button
+                            onClick={() => setIsTourOpen(true)}
+                            className="bg-indigo-600 text-white hover:bg-indigo-700 font-black uppercase text-[9px] tracking-widest px-6 h-11 rounded-2xl shadow-md transition-all hover:translate-y-[-2px]"
+                        >
+                            <Plane className="h-4 w-4 mr-2 text-[#D9F99D]" /> Mark Tour
+                        </Button>
                         <Button
                             onClick={() => setIsManualEntryOpen(true)}
                             className="bg-slate-900 text-white hover:bg-black font-black uppercase text-[9px] tracking-widest px-6 h-11 rounded-2xl shadow-md transition-all hover:translate-y-[-2px]"
@@ -698,7 +768,10 @@ export default function AttendancePage() {
                                                             "font-black text-[8px] uppercase tracking-widest px-3 py-1 rounded-lg border-none shadow-sm cursor-pointer hover:opacity-80 transition-opacity",
                                                             log.status === 'Present' ? "bg-emerald-50 text-emerald-600" :
                                                                 log.status === 'Late' ? "bg-amber-50 text-amber-600" :
-                                                                    log.status === 'Half Day' ? "bg-blue-50 text-blue-600" : "bg-rose-50 text-rose-600"
+                                                                    log.status === 'Half Day' ? "bg-blue-50 text-blue-600" :
+                                                                        log.status === 'Tour' ? "bg-violet-50 text-violet-600" :
+                                                                            log.status === 'Weekend' ? "bg-slate-100 text-slate-500" :
+                                                                                log.status === 'Holiday' ? "bg-purple-50 text-purple-600" : "bg-rose-50 text-rose-600"
                                                         )}
                                                             onClick={() => {
                                                                 setManualEmpId(log.id);
@@ -964,7 +1037,10 @@ export default function AttendancePage() {
                                                             "font-black text-[8px] uppercase tracking-widest px-3 py-1 rounded-lg border-none shadow-sm cursor-pointer hover:opacity-80 transition-opacity",
                                                             row.status === 'Present' ? "bg-emerald-50 text-emerald-600" :
                                                                 row.status === 'Late' ? "bg-amber-50 text-amber-600" :
-                                                                    row.status === 'Half Day' ? "bg-blue-50 text-blue-600" : "bg-rose-50 text-rose-600"
+                                                                    row.status === 'Half Day' ? "bg-blue-50 text-blue-600" :
+                                                                        row.status === 'Tour' ? "bg-violet-50 text-violet-600" :
+                                                                            row.status === 'Weekend' ? "bg-slate-100 text-slate-500" :
+                                                                                row.status === 'Holiday' ? "bg-purple-50 text-purple-600" : "bg-rose-50 text-rose-600"
                                                         )}
                                                             onClick={() => {
                                                                 setManualEmpId(row.id);
@@ -1169,7 +1245,7 @@ export default function AttendancePage() {
                                         ) : monthlyRows.length === 0 ? (
                                             <tr><td colSpan={daysInSelectedMonth + 5} className="py-20 text-center"><p className="text-[10px] font-bold text-slate-400">No monthly attendance records found</p></td></tr>
                                         ) : monthlyRows.map((emp, idx) => {
-                                            const payable = emp.present + emp.woff + emp.leave + emp.holiday;
+                                            const payable = emp.present + emp.woff + emp.leave + emp.holiday + (emp.tour || 0);
                                             const dailyRate = Math.round(emp.salary / daysInSelectedMonth);
                                             return (
                                                 <tr key={emp.employee_id || idx} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors group">
@@ -1189,7 +1265,7 @@ export default function AttendancePage() {
                                                     </td>
                                                     {/* Payable Days - column */}
                                                     <td className="py-3 px-4 text-center border-r border-slate-50 bg-emerald-50/10">
-                                                        <div className="flex flex-col items-center justify-center gap-0.5 cursor-help" title={`Employee: ${emp.name}\nFixed Gross: ₹${(emp.salary || 0).toLocaleString('en-IN')}\n\nPayable Days Breakdown:\n• Present: ${emp.present ?? 0}\n• Weekly Off: ${emp.woff ?? 0}\n• Holiday: ${emp.holiday ?? 0}\n• Paid Leave: ${emp.leave ?? 0}\n────────────────\nPayable Days: ${payable}\nPer-Day Rate: ₹${dailyRate.toLocaleString('en-IN')}\nEstimated Payout: ₹${(payable * dailyRate).toLocaleString('en-IN')}`}>
+                                                        <div className="flex flex-col items-center justify-center gap-0.5 cursor-help" title={`Employee: ${emp.name}\nFixed Gross: ₹${(emp.salary || 0).toLocaleString('en-IN')}\n\nPayable Days Breakdown:\n• Present: ${emp.present ?? 0}\n• Weekly Off: ${emp.woff ?? 0}\n• Holiday: ${emp.holiday ?? 0}\n• Paid Leave: ${emp.leave ?? 0}\n• Tour (Paid): ${emp.tour ?? 0}\n────────────────\nPayable Days: ${payable}\nPer-Day Rate: ₹${dailyRate.toLocaleString('en-IN')}\nEstimated Payout: ₹${(payable * dailyRate).toLocaleString('en-IN')}`}>
                                                             <Badge className="bg-emerald-500 text-white font-black text-[10px] h-6 px-3 rounded-md shadow-sm hover:bg-emerald-600">{payable}</Badge>
                                                         </div>
                                                     </td>
@@ -1206,7 +1282,7 @@ export default function AttendancePage() {
                                                             dateObj.getDate() === currentDate.getDate() &&
                                                             dateObj.getMonth() === currentDate.getMonth() &&
                                                             dateObj.getFullYear() === currentDate.getFullYear();
-                                                        
+
                                                         const earnedForDay = status === 'A' || status === '-' ? 0 : dailyRate;
                                                         const tooltipLines = `₹${earnedForDay.toLocaleString('en-IN')}`;
 
@@ -1220,8 +1296,9 @@ export default function AttendancePage() {
                                                                             status === 'A' ? "bg-rose-500 text-white shadow-rose-200 border-rose-600" :
                                                                                 status === 'W' ? "bg-slate-100 text-slate-400 border-slate-200 opacity-60" :
                                                                                     status === 'H' ? "bg-blue-500 text-white shadow-blue-200 border-blue-600" :
-                                                                                        status === 'L' ? "bg-amber-100 text-amber-700 border-amber-200" :
-                                                                                            "bg-white text-slate-300 border-dashed border-slate-200"
+                                                                                        status === 'T' ? "bg-violet-100 text-violet-700 border-violet-200" :
+                                                                                            status === 'L' ? "bg-amber-100 text-amber-700 border-amber-200" :
+                                                                                                "bg-white text-slate-300 border-dashed border-slate-200"
                                                                     )}
                                                                 >
                                                                     {status}
@@ -1319,6 +1396,118 @@ export default function AttendancePage() {
                                     </span>
                                 ) : (
                                     "Submit"
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Mark Tour Dialog */}
+            <Dialog open={isTourOpen} onOpenChange={setIsTourOpen}>
+                <DialogContent className="sm:max-w-[480px] rounded-[2rem] p-0 overflow-hidden bg-white border-none shadow-2xl">
+                    <div className="bg-slate-900 p-8 text-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-6 opacity-10">
+                            <Plane className="h-24 w-24 text-white" />
+                        </div>
+                        <div className="relative z-10 flex flex-col items-center">
+                            <div className="h-14 w-14 bg-white/10 rounded-2xl flex items-center justify-center mb-4">
+                                <Plane className="h-7 w-7 text-violet-300" />
+                            </div>
+                            <DialogTitle className="text-2xl font-black italic uppercase tracking-tighter text-white">Mark Tour</DialogTitle>
+                            <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">
+                                Auto-mark attendance as Tour for date range
+                            </DialogDescription>
+                        </div>
+                    </div>
+
+                    <div className="p-8 space-y-5 max-h-[55vh] overflow-y-auto">
+                        <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Employee ID</Label>
+                            <Input
+                                placeholder="e.g. EMP005"
+                                value={tourEmpId}
+                                onChange={(e) => setTourEmpId(e.target.value)}
+                                className="h-12 rounded-xl bg-slate-50 border-none font-bold text-xs uppercase"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tour Title</Label>
+                            <Input
+                                placeholder="e.g. Client Visit - Mumbai"
+                                value={tourTitle}
+                                onChange={(e) => setTourTitle(e.target.value)}
+                                className="h-12 rounded-xl bg-slate-50 border-none font-bold text-xs"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">From Location</Label>
+                                <Input
+                                    placeholder="e.g. Delhi"
+                                    value={tourFromLocation}
+                                    onChange={(e) => setTourFromLocation(e.target.value)}
+                                    className="h-12 rounded-xl bg-slate-50 border-none font-bold text-xs"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">To Location</Label>
+                                <Input
+                                    placeholder="e.g. Mumbai"
+                                    value={tourToLocation}
+                                    onChange={(e) => setTourToLocation(e.target.value)}
+                                    className="h-12 rounded-xl bg-slate-50 border-none font-bold text-xs"
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Start Date</Label>
+                                <Input
+                                    type="date"
+                                    value={tourStartDate}
+                                    onChange={(e) => setTourStartDate(e.target.value)}
+                                    className="h-12 rounded-xl bg-slate-50 border-none font-bold text-xs uppercase"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">End Date</Label>
+                                <Input
+                                    type="date"
+                                    value={tourEndDate}
+                                    onChange={(e) => setTourEndDate(e.target.value)}
+                                    className="h-12 rounded-xl bg-slate-50 border-none font-bold text-xs uppercase"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Description (Optional)</Label>
+                            <textarea
+                                placeholder="Tour purpose & details..."
+                                value={tourDescription}
+                                onChange={(e) => setTourDescription(e.target.value)}
+                                className="w-full h-20 p-4 rounded-xl bg-slate-50 border-none font-bold text-xs resize-none outline-none focus:ring-2 ring-violet-100"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+                            <Info className="h-3 w-3" /> Tour days = Paid
+                        </span>
+                        <div className="flex gap-3">
+                            <Button variant="ghost" onClick={() => setIsTourOpen(false)} className="text-[9px] font-black uppercase tracking-widest text-slate-500 rounded-xl hover:bg-slate-200">Cancel</Button>
+                            <Button onClick={handleTourSubmit} disabled={tourSubmitting} className="bg-violet-600 hover:bg-violet-700 text-white font-black uppercase text-[9px] tracking-widest rounded-xl px-6 shadow-md transition-all hover:translate-y-[-2px] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0">
+                                {tourSubmitting ? (
+                                    <span className="flex items-center gap-2">
+                                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                        </svg>
+                                        Submitting...
+                                    </span>
+                                ) : (
+                                    "Mark Tour"
                                 )}
                             </Button>
                         </div>

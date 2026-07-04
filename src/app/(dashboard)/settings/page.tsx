@@ -123,7 +123,7 @@ export default function SettingsPage() {
                                 <div className="pb-4 space-y-1">
                                     <h2 className="text-2xl font-black text-slate-900 tracking-tighter uppercase italic">John Doe</h2>
                                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2 italic">
-                                        <Star className="h-3.5 w-3.5 text-[#D9F99D] fill-[#D9F99D]" /> HR Director • Triptay
+                                        <Star className="h-3.5 w-3.5 text-[#D9F99D] fill-[#D9F99D]" /> HR Director • Apaar Logistics
                                     </p>
                                 </div>
                                 <div className="md:ml-auto pb-4">

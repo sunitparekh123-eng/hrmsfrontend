@@ -253,6 +253,152 @@ export default function CycleDetailsPage({ params }: { params: Promise<{ id: str
         doc.save(`Payslips_${cycleName}.pdf`);
     };
 
+    const generateSinglePayslip = async (mappedRowId: string) => {
+        const row = rawRows.find((r: any) => (r.employeeCode || String(r.id)) === mappedRowId);
+        if (!row) return;
+        const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a5' });
+
+        // Load logo image
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const tempImg = new Image();
+            tempImg.src = '/company_logopng.png';
+            tempImg.onload = () => resolve(tempImg);
+            tempImg.onerror = (e) => reject(e);
+        }).catch(() => null);
+
+        const pNet = row;
+        const cycleText = cycleName;
+
+        const primaryColor: [number, number, number] = [15, 23, 42];
+        const accentColor: [number, number, number] = [37, 99, 235];
+        const textColor: [number, number, number] = [30, 30, 30];
+        const mutedColor: [number, number, number] = [100, 100, 100];
+        const lineColor: [number, number, number] = [226, 232, 240];
+
+        doc.setFillColor(...accentColor);
+        doc.rect(0, 0, 210, 4, 'F');
+
+        if (img) {
+            doc.addImage(img, 'PNG', 15, 6, 28, 12);
+        } else {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(20);
+            doc.setTextColor(...primaryColor);
+            doc.text("NODE HRMS", 15, 18);
+        }
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...textColor);
+        doc.text(row.company || "Apaar Logistics Pvt Ltd", 195, 15, { align: "right" });
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...mutedColor);
+        doc.text(row.location || "Corporate Office: Mumbai, India", 195, 20, { align: "right" });
+
+        doc.setFillColor(248, 250, 252);
+        doc.rect(15, 25, 180, 8, 'F');
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...primaryColor);
+        doc.text(`PAYSLIP FOR THE MONTH OF ${cycleText.toUpperCase()}`, 105, 30, { align: "center" });
+
+        let currentY = 38;
+        doc.setFontSize(8);
+        doc.setTextColor(...textColor);
+
+        const drawLabelValue = (label: string, value: string, x: number, y: number) => {
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...mutedColor);
+            doc.text(label, x, y);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...textColor);
+            doc.text(value, x + 22, y);
+        };
+
+        drawLabelValue("Name:", row.name || "--", 15, currentY);
+        drawLabelValue("Emp ID:", row.employeeCode || String(row.id) || "--", 80, currentY);
+        drawLabelValue("UAN:", row.uan || "--", 145, currentY);
+
+        currentY += 6;
+        drawLabelValue("Designation:", row.designation || "--", 15, currentY);
+        drawLabelValue("Department:", row.department || "--", 80, currentY);
+        drawLabelValue("PF No:", row.pfNumber || "--", 145, currentY);
+
+        currentY += 6;
+        drawLabelValue("Bank Name:", row.bankName || "--", 15, currentY);
+        drawLabelValue("A/C No:", row.bankAccountNumber || "--", 80, currentY);
+        drawLabelValue("Days Worked:", String(row.workingDays || 0), 145, currentY);
+
+        currentY += 8;
+
+        autoTable(doc, {
+            startY: currentY,
+            theme: 'grid',
+            head: [['Earnings', 'Amount (INR)', 'Deductions', 'Amount (INR)']],
+            body: [
+                ['Basic Salary', Number(pNet.basic || 0).toLocaleString('en-IN', {minimumFractionDigits: 2}), pNet.pf > 0 ? 'Provident Fund (PF)' : '', pNet.pf > 0 ? Number(pNet.pf).toLocaleString('en-IN', {minimumFractionDigits: 2}) : ''],
+                ['House Rent Allowance', Number(pNet.hra || 0).toLocaleString('en-IN', {minimumFractionDigits: 2}), pNet.esi > 0 ? 'Employee State Ins. (ESI)' : '', pNet.esi > 0 ? Number(pNet.esi).toLocaleString('en-IN', {minimumFractionDigits: 2}) : ''],
+                ['Special Allowance', Number(pNet.other || 0).toLocaleString('en-IN', {minimumFractionDigits: 2}), pNet.pt > 0 ? 'Professional Tax (PT)' : '', pNet.pt > 0 ? Number(pNet.pt).toLocaleString('en-IN', {minimumFractionDigits: 2}) : ''],
+                [row.conveyance ? 'Conveyance Allowance' : '', row.conveyance ? Number(row.conveyance).toLocaleString('en-IN', {minimumFractionDigits: 2}) : '', row.loanDeduction > 0 ? 'Loan Deduction' : '', row.loanDeduction > 0 ? Number(row.loanDeduction).toLocaleString('en-IN', {minimumFractionDigits: 2}) : '']
+            ].filter(r => r.some(cell => cell !== '')),
+            headStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', lineWidth: 0.1, lineColor: [226, 232, 240] },
+            bodyStyles: { textColor: [30, 30, 30], lineWidth: 0.1, lineColor: [226, 232, 240] },
+            styles: { fontSize: 8, cellPadding: 3 },
+            columnStyles: { 0: { cellWidth: 55 }, 1: { cellWidth: 35, halign: 'right' }, 2: { cellWidth: 55 }, 3: { cellWidth: 35, halign: 'right' } },
+            foot: [['Gross Earnings', Number(pNet.totalEarnings || 0).toLocaleString('en-IN', {minimumFractionDigits: 2}), 'Gross Deductions', Number(pNet.grossDeductions || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})]],
+            footStyles: { fillColor: [255, 255, 255], textColor: [15, 23, 42], fontStyle: 'bold', lineWidth: 0.1, lineColor: [226, 232, 240] },
+            margin: { left: 15, right: 15 }
+        });
+
+        const finalY = (doc as any).lastAutoTable.finalY + 8;
+
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(...lineColor);
+        doc.rect(15, finalY, 180, 25, 'FD');
+
+        doc.setFillColor(220, 252, 231);
+        doc.rect(15, finalY, 60, 25, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(22, 101, 52);
+        doc.text("Net Take Home", 45, finalY + 8, { align: "center" });
+        doc.setFontSize(14);
+        doc.text(`INR ${Number(pNet.net || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`, 45, finalY + 18, { align: "center" });
+
+        doc.line(75, finalY, 75, finalY + 25);
+
+        doc.setFontSize(8);
+        doc.setTextColor(...mutedColor);
+        doc.text("Employer PF:", 85, finalY + 8);
+        doc.text("Employer ESIC:", 85, finalY + 18);
+        
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...textColor);
+        doc.text(Number(pNet.pfEmployer || 0).toLocaleString('en-IN', {minimumFractionDigits: 2}), 115, finalY + 8);
+        doc.text(Number(pNet.esiEmployer || 0).toLocaleString('en-IN', {minimumFractionDigits: 2}), 115, finalY + 18);
+
+        doc.setFillColor(254, 249, 195);
+        doc.rect(140, finalY, 55, 25, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(133, 77, 14);
+        doc.text("Total Monthly CTC", 167.5, finalY + 8, { align: "center" });
+        doc.setFontSize(14);
+        doc.text(`INR ${Number(pNet.totalMonthlyCTC || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})}`, 167.5, finalY + 18, { align: "center" });
+
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(...mutedColor);
+        doc.text(`Amount in words: ${salaryToWords(pNet.net || 0)}`, 105, finalY + 32, { align: "center" });
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        doc.text("This is a computer-generated document and does not require a signature.", 105, 142, { align: "center" });
+
+        doc.save(`Payslip_${row.name?.replace(/\s+/g, '_')}_${cycleText}.pdf`);
+    };
+
     return (
         <ProtectedRoute module="PAYROLL" action="READ">
             <div className="space-y-8 pb-20">
@@ -429,13 +575,21 @@ export default function CycleDetailsPage({ params }: { params: Promise<{ id: str
                                         </span>
                                     </TableCell>
 
-                                    <TableCell className="pr-8 py-5 text-right">
+                                    <TableCell className="pr-8 py-5 text-right flex items-center justify-end gap-2">
                                         <Badge className={cn(
                                             "border-none font-black text-[8px] h-6 px-3 rounded-lg uppercase tracking-widest shadow-sm",
                                             t.status === 'Transferred' ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-700"
                                         )}>
                                             {t.status}
                                         </Badge>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => generateSinglePayslip(t.id)}
+                                            className="h-8 rounded-lg border-slate-100 font-black uppercase text-[7px] tracking-widest px-3 hover:bg-[#D9F99D] hover:text-slate-900 hover:border-[#D9F99D] transition-all"
+                                        >
+                                            <Download className="h-3.5 w-3.5 mr-1.5" /> PDF
+                                        </Button>
                                     </TableCell>
                                 </TableRow>
                             ))}

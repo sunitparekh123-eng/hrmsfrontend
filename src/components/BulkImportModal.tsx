@@ -22,7 +22,7 @@ export function BulkImportModal({ open, onOpenChange, companies, offices, onSucc
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Download/Upload, 2: Preview/Map, 3: Processing/Result
     const [parsedData, setParsedData] = useState<ParsedRow[]>([]);
-    
+
     // Progress
     const [isProcessing, setIsProcessing] = useState(false);
     const [processedCount, setProcessedCount] = useState(0);
@@ -77,10 +77,10 @@ export function BulkImportModal({ open, onOpenChange, companies, offices, onSucc
         const reference = [...compSheet, {}, ...offSheet];
 
         const wb = XLSX.utils.book_new();
-        
+
         const wsData = XLSX.utils.json_to_sheet(employeeData);
         XLSX.utils.book_append_sheet(wb, wsData, "Employees Data");
-        
+
         const wsInstr = XLSX.utils.json_to_sheet(instructions);
         XLSX.utils.book_append_sheet(wb, wsInstr, "Instructions");
 
@@ -128,13 +128,13 @@ export function BulkImportModal({ open, onOpenChange, companies, offices, onSucc
 
         for (let i = 0; i < parsedData.length; i++) {
             const row = parsedData[i];
-            
+
             // Auto-generate emp_code if missing
             let empCode = String(row["Emp Code (Optional)"] || "").trim();
             if (!empCode) {
                 empCode = `EMP${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 1000)}`;
             }
-            
+
             // Build payload exactly as required by the backend
             const payload = {
                 emp_code: empCode,
@@ -156,7 +156,7 @@ export function BulkImportModal({ open, onOpenChange, companies, offices, onSucc
                 pf_applicable: parseBoolean(row["PF Applicable (TRUE/FALSE)"], true),
                 esic_applicable: parseBoolean(row["ESIC Applicable (TRUE/FALSE)"], false),
                 send_offer_letter: false, // Per user request
-                
+
                 // Defaults for other complex fields to avoid validation errors
                 pf_employee_rate: 0.12,
                 pf_employer_rate: 0.12,
@@ -164,8 +164,8 @@ export function BulkImportModal({ open, onOpenChange, companies, offices, onSucc
                 esic_employer_rate: 0.0325,
                 pf_contribution_mode: "shared",
                 esic_contribution_mode: "shared",
-                shift_start_time: "09:00",
-                shift_end_time: "18:00",
+                shift_start_time: "10:00",
+                shift_end_time: "19:00",
                 half_day_late_minutes: 60,
                 pt_applicable: true,
                 effective_work_days: 26,
@@ -245,7 +245,7 @@ export function BulkImportModal({ open, onOpenChange, companies, offices, onSucc
                             </div>
 
                             {/* Upload Card */}
-                            <div 
+                            <div
                                 onClick={() => fileInputRef.current?.click()}
                                 className="bg-white rounded-[2rem] p-8 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-center space-y-4 hover:bg-slate-50 hover:border-indigo-300 transition-colors cursor-pointer"
                             >
@@ -259,10 +259,10 @@ export function BulkImportModal({ open, onOpenChange, companies, offices, onSucc
                                 <Button variant="outline" className="w-full border-slate-200 text-slate-600 font-black text-[10px] uppercase tracking-widest rounded-xl h-10 mt-4 pointer-events-none">
                                     Browse File
                                 </Button>
-                                <input 
-                                    type="file" 
-                                    className="hidden" 
-                                    accept=".xlsx, .xls" 
+                                <input
+                                    type="file"
+                                    className="hidden"
+                                    accept=".xlsx, .xls"
                                     ref={fileInputRef}
                                     onChange={handleFileUpload}
                                 />
@@ -297,7 +297,7 @@ export function BulkImportModal({ open, onOpenChange, companies, offices, onSucc
                                     <p className="text-center text-[9px] font-bold text-slate-400 mt-4 italic">+ {parsedData.length - 5} more records</p>
                                 )}
                             </div>
-                            
+
                             <div className="flex gap-3 justify-end">
                                 <Button variant="ghost" onClick={reset} className="font-black text-[10px] uppercase tracking-widest h-12 px-6 rounded-xl text-slate-500">
                                     Cancel
@@ -324,8 +324,8 @@ export function BulkImportModal({ open, onOpenChange, companies, offices, onSucc
                                     </p>
                                 </div>
                                 <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                                    <div 
-                                        className="h-full bg-indigo-500 transition-all duration-300 ease-out" 
+                                    <div
+                                        className="h-full bg-indigo-500 transition-all duration-300 ease-out"
                                         style={{ width: `${(processedCount / parsedData.length) * 100}%` }}
                                     />
                                 </div>

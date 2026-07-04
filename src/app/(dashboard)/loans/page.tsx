@@ -60,6 +60,7 @@ type Loan = {
   nextEmiDate?: string;
   payments?: LoanPayment[];
   branch?: string;
+  company?: string;
 };
 
 const TYPE_LABEL_MAP: Record<string, string> = {
@@ -105,7 +106,7 @@ export default function LoansPage() {
       try {
         const data = await apiGet<any>("/employees", { limit: 1000 });
         setEmployees(Array.isArray(data) ? data : (data?.data || data?.rows || []));
-      } catch (_) {}
+      } catch (_) { }
     };
     fetchEmployees();
   }, []);
@@ -143,6 +144,7 @@ export default function LoansPage() {
             ? new Date(r.next_emi_date).toLocaleDateString("en-IN", { month: "short", day: "2-digit", year: "numeric" })
             : undefined,
           branch: emp.department || "—",
+          company: emp.company?.name || "Apaar Logistics",
         };
       });
       setLoans(rows);
@@ -181,6 +183,7 @@ export default function LoansPage() {
           ? new Date(r.next_emi_date).toLocaleDateString("en-IN", { month: "short", day: "2-digit", year: "numeric" })
           : undefined,
         branch: (r.employee || {}).department || "—",
+        company: (r.employee || {}).company?.name || "Apaar Logistics",
         payments: rawPayments.map((p: any) => ({
           id: p.id,
           date: p.created_at ? new Date(p.created_at).toLocaleDateString("en-IN", { month: "short", day: "2-digit", year: "numeric" }) : "—",
@@ -304,10 +307,18 @@ export default function LoansPage() {
     }
   };
 
-  const handleDownloadReceipt = () => {
+  const handleDownloadReceipt = async () => {
     if (!selected) return;
 
     const doc = new jsPDF({ orientation: "landscape", format: "a5" });
+
+    // Load logo image
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const tempImg = new Image();
+      tempImg.src = '/company_logopng.png';
+      tempImg.onload = () => resolve(tempImg);
+      tempImg.onerror = (e) => reject(e);
+    }).catch(() => null);
 
     // Premium Corporate Styling
     // Top border bar
@@ -315,22 +326,35 @@ export default function LoansPage() {
     doc.rect(0, 0, 210, 6, "F");
 
     // Company Header
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(15, 23, 42);
-    doc.text(selected.branch ? `TRIPTAY LOGISTICS` : "COMPANY NAME", 15, 18);
-    
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(100, 116, 139);
-    doc.text("FINANCE & ACCOUNTS DEPARTMENT", 15, 23);
+    if (img) {
+      doc.addImage(img, 'PNG', 15, 9, 21, 9);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text((selected.company || "Apaar Logistics").toUpperCase(), 39, 16);
+
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(100, 116, 139);
+      doc.text("FINANCE & ACCOUNTS DEPARTMENT", 39, 21);
+    } else {
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(15, 23, 42);
+      doc.text((selected.company || "Apaar Logistics").toUpperCase(), 15, 18);
+
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(100, 116, 139);
+      doc.text("FINANCE & ACCOUNTS DEPARTMENT", 15, 23);
+    }
 
     // Document Title
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(15, 23, 42);
     doc.text("LOAN DISBURSEMENT VOUCHER", 195, 18, { align: "right" });
-    
+
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 116, 139);
@@ -405,15 +429,15 @@ export default function LoansPage() {
         ]
       ],
       theme: "grid",
-      headStyles: { 
+      headStyles: {
         fillColor: [15, 23, 42], // slate-900
         textColor: [255, 255, 255],
-        fontSize: 8, 
+        fontSize: 8,
         fontStyle: "bold",
         halign: 'left'
       },
-      bodyStyles: { 
-        fontSize: 8, 
+      bodyStyles: {
+        fontSize: 8,
         textColor: [15, 23, 42],
         fillColor: [255, 255, 255],
         lineColor: [226, 232, 240],
@@ -435,12 +459,12 @@ export default function LoansPage() {
     doc.setFillColor(248, 250, 252); // bg-slate-50
     doc.setDrawColor(226, 232, 240);
     doc.rect(15, finalY + 6, 180, 22, "FD");
-    
+
     doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(15, 23, 42);
     doc.text("Terms & Conditions:", 18, finalY + 12);
-    
+
     doc.setFont("helvetica", "normal");
     doc.setTextColor(71, 85, 105);
     doc.text("1. This amount will be deducted from your monthly salary as per the EMI schedule.", 18, finalY + 17);
@@ -450,7 +474,7 @@ export default function LoansPage() {
     // Signatures
     doc.setDrawColor(203, 213, 225); // slate-300
     doc.setLineWidth(0.5);
-    
+
     const pageHeight = doc.internal.pageSize.getHeight();
     const sigY = pageHeight - 18; // line position
 

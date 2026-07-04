@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -6,10 +7,14 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-    TrendingUp, Info, Wallet, ArrowUpRight, ChevronRight, 
-    ShieldCheck, CreditCard, UserCircle, CalendarCheck, Clock 
+import {
+    TrendingUp, Info, Wallet, ArrowUpRight, ChevronRight,
+    ShieldCheck, CreditCard, UserCircle, CalendarCheck, Clock, Download
 } from "lucide-react";
+import { apiGet } from "@/lib/api-client";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { salaryToWords } from "@/lib/amount-to-words";
 
 export function GlobalRulesSheet({
     isOpen, onOpenChange,
@@ -47,24 +52,24 @@ export function GlobalRulesSheet({
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2 relative group">
                                         <div className="flex justify-between items-center ml-1">
-                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Fixed Gross Salary</Label>
+                                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Monthly CTC</Label>
                                             <Badge className="bg-slate-100 text-slate-500 border-none font-bold text-[7px] uppercase tracking-widest px-1.5 h-3.5">Locked</Badge>
                                         </div>
-                                        <Input 
-                                            type="number" 
+                                        <Input
+                                            type="number"
                                             disabled
                                             value={selectedEmployee.fixedGross || 0}
-                                            className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold text-[11px] text-slate-500 cursor-not-allowed opacity-70" 
+                                            className="h-12 rounded-xl bg-slate-50/50 border-slate-100 font-bold text-[11px] text-slate-500 cursor-not-allowed opacity-70"
                                         />
                                         <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest ml-1">Managed via Profile Update</p>
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Previous Arrears</Label>
-                                        <Input 
-                                            type="number" 
+                                        <Input
+                                            type="number"
                                             value={selectedEmployee.previousArrears || 0}
                                             onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'previousArrears', parseInt(e.target.value) || 0)}
-                                            className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px] focus:bg-white transition-all" 
+                                            className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px] focus:bg-white transition-all"
                                         />
                                         <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest ml-1">One-time addition</p>
                                     </div>
@@ -72,20 +77,20 @@ export function GlobalRulesSheet({
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-2">
                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Bonus</Label>
-                                        <Input 
-                                            type="number" 
+                                        <Input
+                                            type="number"
                                             value={selectedEmployee.bonus || 0}
                                             onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'bonus', parseInt(e.target.value) || 0)}
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px] focus:bg-white transition-all" 
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px] focus:bg-white transition-all"
                                         />
                                     </div>
                                     <div className="space-y-2">
                                         <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Incentive</Label>
-                                        <Input 
-                                            type="number" 
+                                        <Input
+                                            type="number"
                                             value={selectedEmployee.incentive || 0}
                                             onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'incentive', parseInt(e.target.value) || 0)}
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px] focus:bg-white transition-all" 
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px] focus:bg-white transition-all"
                                         />
                                     </div>
                                 </div>
@@ -99,11 +104,11 @@ export function GlobalRulesSheet({
                                             <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Advance / Loan EMI</Label>
                                             <Badge className="bg-emerald-50 text-emerald-600 border-none font-bold text-[7px] uppercase tracking-widest px-1.5 h-3.5">Auto</Badge>
                                         </div>
-                                        <Input 
-                                            type="number" 
+                                        <Input
+                                            type="number"
                                             disabled
                                             value={selectedEmployee.loanDeduction || 0}
-                                            className="h-10 rounded-xl bg-emerald-50/30 border-emerald-100/50 font-bold text-[10px] text-emerald-700 cursor-not-allowed" 
+                                            className="h-10 rounded-xl bg-emerald-50/30 border-emerald-100/50 font-bold text-[10px] text-emerald-700 cursor-not-allowed"
                                         />
                                         <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest ml-1">Synced from Loan Module</p>
                                     </div>
@@ -111,11 +116,11 @@ export function GlobalRulesSheet({
                                         <div className="flex justify-between items-center ml-1">
                                             <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Other Deduction</Label>
                                         </div>
-                                        <Input 
-                                            type="number" 
+                                        <Input
+                                            type="number"
                                             value={selectedEmployee.otherDeduction || 0}
                                             onChange={(e) => handleSalaryUpdate(selectedEmployee.id, 'otherDeduction', parseInt(e.target.value) || 0)}
-                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px] focus:bg-white transition-all" 
+                                            className="h-10 rounded-xl bg-slate-50 border-slate-100 font-bold text-[10px] focus:bg-white transition-all"
                                         />
                                         <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest ml-1">Manual recovery</p>
                                     </div>
@@ -131,17 +136,17 @@ export function GlobalRulesSheet({
                                             <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Loss of Pay (Absent Days)</Label>
                                             <Badge className="bg-blue-50 text-blue-600 border-none font-bold text-[7px] uppercase tracking-widest px-1.5 h-3.5">Live Sync</Badge>
                                         </div>
-                                        <Input 
-                                            type="number" 
+                                        <Input
+                                            type="number"
                                             disabled
                                             value={selectedEmployee.absentDays}
-                                            className="h-12 rounded-xl bg-blue-50/30 border-blue-100/50 font-bold text-[11px] text-blue-700 cursor-not-allowed" 
+                                            className="h-12 rounded-xl bg-blue-50/30 border-blue-100/50 font-bold text-[11px] text-blue-700 cursor-not-allowed"
                                         />
                                         <p className="text-[7px] font-bold text-slate-400 uppercase tracking-widest ml-1">Auto-calculated based on daily attendance records</p>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div className="p-6 rounded-[2rem] bg-slate-950 text-white shadow-2xl relative overflow-hidden border border-white/5">
                                 <div className="absolute top-0 right-0 p-6 opacity-5">
                                     <TrendingUp className="h-20 w-20" />
@@ -167,44 +172,44 @@ export function GlobalRulesSheet({
                                         Warning: These rules will apply to all employees who don't have custom overrides.
                                     </p>
                                 </div>
-                                
+
                                 <div className="space-y-4">
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Employer PF %</Label>
-                                            <Input 
-                                                type="number" 
+                                            <Input
+                                                type="number"
                                                 value={globalRules.pfEmployer}
-                                                onChange={(e) => setGlobalRules({...globalRules, pfEmployer: parseInt(e.target.value) || 0})}
-                                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
+                                                onChange={(e) => setGlobalRules({ ...globalRules, pfEmployer: parseInt(e.target.value) || 0 })}
+                                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]"
                                             />
                                         </div>
                                         <div className="space-y-2">
                                             <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Employee PF %</Label>
-                                            <Input 
-                                                type="number" 
+                                            <Input
+                                                type="number"
                                                 value={globalRules.pfEmployee}
-                                                onChange={(e) => setGlobalRules({...globalRules, pfEmployee: parseInt(e.target.value) || 0})}
-                                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
+                                                onChange={(e) => setGlobalRules({ ...globalRules, pfEmployee: parseInt(e.target.value) || 0 })}
+                                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]"
                                             />
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div className="space-y-2">
                                             <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">HRA % of Basic</Label>
-                                            <Input 
-                                                type="number" 
+                                            <Input
+                                                type="number"
                                                 value={globalRules.hraPercent}
-                                                onChange={(e) => setGlobalRules({...globalRules, hraPercent: parseInt(e.target.value) || 0})}
-                                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
+                                                onChange={(e) => setGlobalRules({ ...globalRules, hraPercent: parseInt(e.target.value) || 0 })}
+                                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]"
                                             />
                                         </div>
                                         <div className="space-y-2">
                                             <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Monthly Cycle</Label>
-                                            <Input 
+                                            <Input
                                                 value={globalRules.cycle}
-                                                onChange={(e) => setGlobalRules({...globalRules, cycle: e.target.value})}
-                                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
+                                                onChange={(e) => setGlobalRules({ ...globalRules, cycle: e.target.value })}
+                                                className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]"
                                             />
                                         </div>
                                     </div>
@@ -212,7 +217,7 @@ export function GlobalRulesSheet({
                             </div>
                         </div>
                     )}
-                    
+
                     <SheetFooter className="pt-6">
                         <Button onClick={() => onOpenChange(false)} className="w-full h-12 rounded-2xl bg-slate-900 text-white font-black uppercase text-[9px] tracking-widest shadow-xl">Save Configuration</Button>
                     </SheetFooter>
@@ -232,7 +237,7 @@ export function DisbursementDialog({
     return (
         <Dialog open={isOpen} onOpenChange={(open) => {
             onOpenChange(open);
-            if(!open) setDisbursementStep(1);
+            if (!open) setDisbursementStep(1);
         }}>
             <DialogContent className="sm:max-w-[480px] border-none shadow-2xl rounded-[2.5rem] p-10 overflow-hidden">
                 {disbursementStep === 1 ? (
@@ -246,7 +251,7 @@ export function DisbursementDialog({
                                 Confirming payout for <span className="text-slate-900 font-black italic">{ledger.length} Staff Members</span>
                             </DialogDescription>
                         </DialogHeader>
-                        
+
                         <div className="my-8 p-8 rounded-[2rem] bg-slate-50 text-slate-900 relative overflow-hidden border border-slate-100 shadow-xl">
                             <div className="absolute top-0 right-0 p-6 opacity-[0.03]">
                                 <ArrowUpRight className="h-16 w-16 text-slate-900" />
@@ -273,8 +278,8 @@ export function DisbursementDialog({
                         </div>
 
                         <div className="flex flex-col gap-4">
-                            <Button 
-                                onClick={() => setDisbursementStep(2)} 
+                            <Button
+                                onClick={() => setDisbursementStep(2)}
                                 className="w-full h-14 rounded-2xl bg-slate-900 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:translate-y-[-2px] transition-all flex items-center justify-center gap-3"
                             >
                                 Verify & Finalize <ChevronRight className="h-5 w-5" />
@@ -299,7 +304,7 @@ export function DisbursementDialog({
                         <div className="space-y-5 mb-10">
                             <div className="space-y-1.5">
                                 <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Payment Mode</Label>
-                                <Select value={txDetails.mode} onValueChange={(v) => setTxDetails({...txDetails, mode: v})}>
+                                <Select value={txDetails.mode} onValueChange={(v) => setTxDetails({ ...txDetails, mode: v })}>
                                     <SelectTrigger className="h-12 rounded-xl bg-slate-50 border-none font-bold text-[11px] px-6">
                                         <SelectValue />
                                     </SelectTrigger>
@@ -312,25 +317,25 @@ export function DisbursementDialog({
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Reference / Batch ID</Label>
-                                <Input 
+                                <Input
                                     value={txDetails.reference}
-                                    onChange={(e) => setTxDetails({...txDetails, reference: e.target.value})}
-                                    className="h-12 rounded-xl bg-slate-50 border-none font-bold text-[11px] px-6" 
+                                    onChange={(e) => setTxDetails({ ...txDetails, reference: e.target.value })}
+                                    className="h-12 rounded-xl bg-slate-50 border-none font-bold text-[11px] px-6"
                                 />
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Authorized By</Label>
-                                <Input 
+                                <Input
                                     value={txDetails.authorizedBy}
-                                    onChange={(e) => setTxDetails({...txDetails, authorizedBy: e.target.value})}
-                                    className="h-12 rounded-xl bg-slate-50 border-none font-bold text-[11px] px-6" 
+                                    onChange={(e) => setTxDetails({ ...txDetails, authorizedBy: e.target.value })}
+                                    className="h-12 rounded-xl bg-slate-50 border-none font-bold text-[11px] px-6"
                                 />
                             </div>
                         </div>
 
                         <div className="flex flex-col gap-4">
-                            <Button 
-                                onClick={handleDisburseAll} 
+                            <Button
+                                onClick={handleDisburseAll}
                                 className="w-full h-14 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 text-white font-black uppercase text-[10px] tracking-[0.2em] shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                             >
                                 <CreditCard className="h-5 w-5" /> Release Funds Now
@@ -350,6 +355,176 @@ export function EmployeeHistoryDialog({
     isOpen, onOpenChange,
     selectedEmployee
 }: any) {
+    const [history, setHistory] = useState<any[]>([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen || !selectedEmployee) return;
+        const fetchHistory = async () => {
+            setLoading(true);
+            try {
+                const empId = selectedEmployee.employeeId || selectedEmployee.id;
+                const data = await apiGet<any[]>(`/payroll/employee/${empId}/history`);
+                setHistory(data || []);
+            } catch (e) {
+                console.error("Failed to load employee history:", e);
+                setHistory([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchHistory();
+    }, [isOpen, selectedEmployee]);
+
+    const handleDownload = async (row: any) => {
+        const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a5' });
+
+        // Load logo image
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+            const tempImg = new Image();
+            tempImg.src = '/company_logopng.png';
+            tempImg.onload = () => resolve(tempImg);
+            tempImg.onerror = (e) => reject(e);
+        }).catch(() => null);
+
+        const pNet = row;
+        const cycleText = row.month;
+
+        const primaryColor: [number, number, number] = [15, 23, 42];
+        const accentColor: [number, number, number] = [37, 99, 235];
+        const textColor: [number, number, number] = [30, 30, 30];
+        const mutedColor: [number, number, number] = [100, 100, 100];
+        const lineColor: [number, number, number] = [226, 232, 240];
+
+        doc.setFillColor(...accentColor);
+        doc.rect(0, 0, 210, 4, 'F');
+
+        if (img) {
+            doc.addImage(img, 'PNG', 15, 6, 28, 12);
+        } else {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(20);
+            doc.setTextColor(...primaryColor);
+            doc.text("NODE HRMS", 15, 18);
+        }
+
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...textColor);
+        doc.text(row.company || "Apaar Logistics Pvt Ltd", 195, 15, { align: "right" });
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(...mutedColor);
+        doc.text(row.location || "Corporate Office: Mumbai, India", 195, 20, { align: "right" });
+
+        doc.setFillColor(248, 250, 252);
+        doc.rect(15, 25, 180, 8, 'F');
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...primaryColor);
+        doc.text(`PAYSLIP FOR THE MONTH OF ${cycleText.toUpperCase()}`, 105, 30, { align: "center" });
+
+        let currentY = 38;
+        doc.setFontSize(8);
+        doc.setTextColor(...textColor);
+
+        const drawLabelValue = (label: string, value: string, x: number, y: number) => {
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...mutedColor);
+            doc.text(label, x, y);
+            doc.setFont("helvetica", "bold");
+            doc.setTextColor(...textColor);
+            doc.text(value, x + 22, y);
+        };
+
+        drawLabelValue("Name:", row.name || "--", 15, currentY);
+        drawLabelValue("Emp ID:", row.employeeCode || String(row.id) || "--", 80, currentY);
+        drawLabelValue("UAN:", row.uan || "--", 145, currentY);
+
+        currentY += 6;
+        drawLabelValue("Designation:", row.designation || "--", 15, currentY);
+        drawLabelValue("Department:", row.department || "--", 80, currentY);
+        drawLabelValue("PF No:", row.pfNumber || "--", 145, currentY);
+
+        currentY += 6;
+        drawLabelValue("Bank Name:", row.bankName || "--", 15, currentY);
+        drawLabelValue("A/C No:", row.bankAccountNumber || "--", 80, currentY);
+        drawLabelValue("Days Worked:", String(row.workingDays || 0), 145, currentY);
+
+        currentY += 8;
+
+        autoTable(doc, {
+            startY: currentY,
+            theme: 'grid',
+            head: [['Earnings', 'Amount (INR)', 'Deductions', 'Amount (INR)']],
+            body: [
+                ['Basic Salary', Number(pNet.basic || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), pNet.pf > 0 ? 'Provident Fund (PF)' : '', pNet.pf > 0 ? Number(pNet.pf).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : ''],
+                ['House Rent Allowance', Number(pNet.hra || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), pNet.esi > 0 ? 'Employee State Ins. (ESI)' : '', pNet.esi > 0 ? Number(pNet.esi).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : ''],
+                ['Special Allowance', Number(pNet.other || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), pNet.pt > 0 ? 'Professional Tax (PT)' : '', pNet.pt > 0 ? Number(pNet.pt).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : ''],
+                [row.conveyance ? 'Conveyance Allowance' : '', row.conveyance ? Number(row.conveyance).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '', row.loanDeduction > 0 ? 'Loan Deduction' : '', row.loanDeduction > 0 ? Number(row.loanDeduction).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '']
+            ].filter(r => r.some(cell => cell !== '')),
+            headStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', lineWidth: 0.1, lineColor: [226, 232, 240] },
+            bodyStyles: { textColor: [30, 30, 30], lineWidth: 0.1, lineColor: [226, 232, 240] },
+            styles: { fontSize: 8, cellPadding: 3 },
+            columnStyles: { 0: { cellWidth: 55 }, 1: { cellWidth: 35, halign: 'right' }, 2: { cellWidth: 55 }, 3: { cellWidth: 35, halign: 'right' } },
+            foot: [['Gross Earnings', Number(pNet.totalEarnings || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), 'Gross Deductions', Number(pNet.grossDeductions || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })]],
+            footStyles: { fillColor: [255, 255, 255], textColor: [15, 23, 42], fontStyle: 'bold', lineWidth: 0.1, lineColor: [226, 232, 240] },
+            margin: { left: 15, right: 15 }
+        });
+
+        const finalY = (doc as any).lastAutoTable.finalY + 8;
+
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(...lineColor);
+        doc.rect(15, finalY, 180, 25, 'FD');
+
+        doc.setFillColor(220, 252, 231);
+        doc.rect(15, finalY, 60, 25, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(22, 101, 52);
+        doc.text("Net Take Home", 45, finalY + 8, { align: "center" });
+        doc.setFontSize(14);
+        doc.text(`INR ${Number(pNet.net || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 45, finalY + 18, { align: "center" });
+
+        doc.line(75, finalY, 75, finalY + 25);
+
+        doc.setFontSize(8);
+        doc.setTextColor(...mutedColor);
+        doc.text("Employer PF:", 85, finalY + 8);
+        doc.text("Employer ESIC:", 85, finalY + 18);
+
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(...textColor);
+        doc.text(Number(pNet.pfEmployer || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), 115, finalY + 8);
+        doc.text(Number(pNet.esiEmployer || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 }), 115, finalY + 18);
+
+        doc.setFillColor(254, 249, 195);
+        doc.rect(140, finalY, 55, 25, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(133, 77, 14);
+        doc.text("Total Monthly CTC", 167.5, finalY + 8, { align: "center" });
+        doc.setFontSize(14);
+        doc.text(`INR ${Number(pNet.totalMonthlyCTC || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, 167.5, finalY + 18, { align: "center" });
+
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(...mutedColor);
+        doc.text(`Amount in words: ${salaryToWords(pNet.net || 0)}`, 105, finalY + 32, { align: "center" });
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        doc.text("This is a computer-generated document and does not require a signature.", 105, 142, { align: "center" });
+
+        doc.save(`Payslip_${selectedEmployee.name?.replace(/\s+/g, '_')}_${cycleText}.pdf`);
+    };
+
+    const paidEntries = history.filter(h => h.status === 'Paid' || h.status === 'Verified');
+    const totalPaidYTD = paidEntries.reduce((acc, h) => acc + h.net, 0);
+    const avgNetPay = paidEntries.length > 0 ? Math.round(totalPaidYTD / paidEntries.length) : 0;
+    const leavesTaken = history.reduce((acc, h) => acc + (h.absentDays || 0), 0);
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[600px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden">
@@ -366,37 +541,47 @@ export function EmployeeHistoryDialog({
                     <div className="grid grid-cols-3 gap-4">
                         <div className="bg-white/5 p-3 rounded-xl border border-white/5">
                             <p className="text-[7px] font-black text-slate-500 uppercase mb-1">Total Paid YTD</p>
-                            <p className="text-sm font-black italic text-[#D9F99D]">₹4,50,000</p>
+                            <p className="text-sm font-black italic text-[#D9F99D]">₹{totalPaidYTD.toLocaleString()}</p>
                         </div>
                         <div className="bg-white/5 p-3 rounded-xl border border-white/5">
                             <p className="text-[7px] font-black text-slate-500 uppercase mb-1">Avg. Net Pay</p>
-                            <p className="text-sm font-black italic text-white">₹1,12,500</p>
+                            <p className="text-sm font-black italic text-white">₹{avgNetPay.toLocaleString()}</p>
                         </div>
                         <div className="bg-white/5 p-3 rounded-xl border border-white/5">
                             <p className="text-[7px] font-black text-slate-500 uppercase mb-1">Leaves Taken</p>
-                            <p className="text-sm font-black italic text-rose-400">12 Days</p>
+                            <p className="text-sm font-black italic text-rose-400">{leavesTaken} Days</p>
                         </div>
                     </div>
                 </div>
                 <div className="p-8 space-y-4">
                     <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Recent Payouts</p>
-                    <div className="space-y-3">
-                        {[
-                            { month: "APR 2026", amount: "₹1,27,400", status: "Paid" },
-                            { month: "MAR 2026", amount: "₹1,15,200", status: "Paid" },
-                            { month: "FEB 2026", amount: "₹1,27,400", status: "Paid" },
-                        ].map((h, i) => (
-                            <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50/30">
-                                <div className="flex items-center gap-3">
-                                    <CalendarCheck className="h-4 w-4 text-slate-400" />
-                                    <span className="text-[10px] font-black text-slate-900 uppercase">{h.month}</span>
+                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                        {loading ? (
+                            <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest text-center py-8">Loading history...</p>
+                        ) : history.length === 0 ? (
+                            <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest text-center py-8">No payout history found</p>
+                        ) : (
+                            history.map((h, i) => (
+                                <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50/30">
+                                    <div className="flex items-center gap-3">
+                                        <CalendarCheck className="h-4 w-4 text-slate-400" />
+                                        <span className="text-[10px] font-black text-slate-900 uppercase">{h.month}</span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-xs font-black italic text-slate-900">₹{h.net.toLocaleString()}</span>
+                                        <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[7px] h-5 px-2 rounded-lg">{h.status}</Badge>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => handleDownload(h)}
+                                            className="h-8 rounded-lg border-slate-100 font-black uppercase text-[7px] tracking-widest px-3 hover:bg-[#D9F99D] hover:text-slate-900 hover:border-[#D9F99D]"
+                                        >
+                                            <Download className="h-3.5 w-3.5 mr-1" /> PDF
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <span className="text-xs font-black italic text-slate-900">{h.amount}</span>
-                                    <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[7px] h-5 px-2 rounded-lg">{h.status}</Badge>
-                                </div>
-                            </div>
-                        ))}
+                            ))
+                        )}
                     </div>
                 </div>
             </DialogContent>
@@ -438,20 +623,20 @@ export function PayrollPolicyDialog({
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Employer PF %</Label>
-                                <Input 
-                                    type="number" 
+                                <Input
+                                    type="number"
                                     value={globalRules.pfEmployer}
-                                    onChange={(e) => setGlobalRules({...globalRules, pfEmployer: parseInt(e.target.value) || 0})}
-                                    className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
+                                    onChange={(e) => setGlobalRules({ ...globalRules, pfEmployer: parseInt(e.target.value) || 0 })}
+                                    className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]"
                                 />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Employee PF %</Label>
-                                <Input 
-                                    type="number" 
+                                <Input
+                                    type="number"
                                     value={globalRules.pfEmployee}
-                                    onChange={(e) => setGlobalRules({...globalRules, pfEmployee: parseInt(e.target.value) || 0})}
-                                    className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]" 
+                                    onChange={(e) => setGlobalRules({ ...globalRules, pfEmployee: parseInt(e.target.value) || 0 })}
+                                    className="h-12 rounded-xl bg-slate-50 border-slate-100 font-bold text-[11px]"
                                 />
                             </div>
                         </div>

@@ -197,12 +197,11 @@ const Variant1Layout: React.FC<LetterPreviewProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img src="/company_logopng.png" alt="Logo" style={{ height: 42, width: 'auto', objectFit: 'contain' }} />
           <div>
-            <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px', textTransform: 'uppercase', color: '#0f172a' }}>{employee?.company || 'TRIPTAY LOGISTICS'}</div>
+            <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px', textTransform: 'uppercase', color: '#0f172a' }}>{employee?.company || 'APAAR LOGISTICS'}</div>
             <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase', color: '#64748b', marginTop: 4 }}>Human Resources Department</div>
           </div>
         </div>
         <div style={{ textAlign: 'right', fontSize: 10, fontWeight: 600, color: '#475569', lineHeight: 1.8 }}>
-          <div>Ref: TL/HR/2026/{templateId}</div>
           <div>Date: {employee?.date || '[Date]'}</div>
           <div>Page: 1 of 1</div>
         </div>
@@ -239,7 +238,7 @@ const Variant1Layout: React.FC<LetterPreviewProps> = ({
       </div>
       {/* Footer */}
       <div style={{ position: 'absolute', bottom: 20, left: 60, right: 60, fontSize: 8, color: '#94a3b8', textAlign: 'center', borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
-        {employee?.company || 'Triptay Logistics'} Pvt. Ltd. | {employee?.companyDetails?.city || 'Indore Hub'}, {employee?.companyDetails?.state || 'MP'} | {employee?.companyDetails?.email || 'hr@triptay.com'} | {employee?.companyDetails?.phone || '+91-XXXXX XXXXX'}
+        {employee?.company || 'Apaar Logistics'} Pvt. Ltd. | {employee?.companyDetails?.city || 'Indore Hub'}, {employee?.companyDetails?.state || 'MP'} | {employee?.companyDetails?.email || 'hr@apaarlogistics.com'} | {employee?.companyDetails?.phone || '+91-XXXXX XXXXX'}
       </div>
     </div>
   </div>
@@ -256,10 +255,9 @@ const Variant2Layout: React.FC<LetterPreviewProps> = ({
     <div style={{ padding: '48px 64px 80px' }}>
       <div style={{ textAlign: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 32, marginBottom: 36 }}>
         <img src="/company_logopng.png" alt="Logo" style={{ height: 48, width: 'auto', margin: '0 auto 12px', display: 'block', objectFit: 'contain' }} />
-        <div style={{ fontSize: 28, fontWeight: 300, letterSpacing: '8px', textTransform: 'uppercase', color: '#1e293b' }}>{employee?.company?.split(' ')[0] || 'TRIPTAY'}</div>
+        <div style={{ fontSize: 28, fontWeight: 300, letterSpacing: '8px', textTransform: 'uppercase', color: '#1e293b' }}>{employee?.company?.split(' ')[0] || 'APAAR'}</div>
         <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '4px', textTransform: 'uppercase', color: '#94a3b8', marginTop: 4 }}>LOGISTICS · HUMAN RESOURCES</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 20, fontSize: 9, color: '#64748b', fontWeight: 600 }}>
-          <span>Ref: TL/HR/2026/{templateId}</span>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20, fontSize: 9, color: '#64748b', fontWeight: 600 }}>
           <span>Date: {employee?.date || '[Date]'}</span>
         </div>
       </div>
@@ -289,7 +287,7 @@ const Variant2Layout: React.FC<LetterPreviewProps> = ({
         </div>
       </div>
       <div style={{ position: 'absolute', bottom: 24, left: 64, right: 64, textAlign: 'center', fontSize: 8, color: '#cbd5e1' }}>
-        {employee?.company?.toUpperCase() || 'TRIPTAY LOGISTICS'} PVT. LTD. · {employee?.companyDetails?.city?.toUpperCase() || 'INDORE HUB'} · {employee?.companyDetails?.email?.toUpperCase() || 'HR@TRIPTAY.COM'}
+        {employee?.company?.toUpperCase() || 'APAAR LOGISTICS'} PVT. LTD. · {employee?.companyDetails?.city?.toUpperCase() || 'INDORE HUB'} · {employee?.companyDetails?.email?.toUpperCase() || 'HR@APAARLOGISTICS.COM'}
       </div>
     </div>
   </div>
@@ -307,12 +305,11 @@ const Variant3Layout: React.FC<LetterPreviewProps> = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <img src="/company_logopng.png" alt="Logo" style={{ height: 42, width: 'auto', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
           <div>
-            <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{employee?.company || 'TRIPTAY LOGISTICS'}</div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', letterSpacing: '-0.5px', textTransform: 'uppercase' }}>{employee?.company || 'APAAR LOGISTICS'}</div>
             <div style={{ fontSize: 9, fontWeight: 700, color: accentColor, letterSpacing: '4px', textTransform: 'uppercase', marginTop: 6 }}>Human Resources · Premium Division</div>
           </div>
         </div>
         <div style={{ textAlign: 'right', fontSize: 10, color: '#94a3b8', lineHeight: 1.8 }}>
-          <div style={{ color: '#fff', fontWeight: 700 }}>Ref: TL/HR/2026/{templateId}</div>
           <div>Date: {employee?.date || '[Date]'}</div>
         </div>
       </div>
@@ -344,7 +341,7 @@ const Variant3Layout: React.FC<LetterPreviewProps> = ({
         </div>
       </div>
       <div style={{ position: 'absolute', bottom: 20, left: 60, right: 60, fontSize: 8, color: '#64748b', textAlign: 'center', borderTop: '1px solid #e2e8f0', paddingTop: 10 }}>
-        {employee?.company?.toUpperCase() || 'TRIPTAY LOGISTICS'} PVT. LTD. · {employee?.companyDetails?.email?.toUpperCase() || 'HR@TRIPTAY.COM'}
+        {employee?.company?.toUpperCase() || 'APAAR LOGISTICS'} PVT. LTD. · {employee?.companyDetails?.email?.toUpperCase() || 'HR@APAARLOGISTICS.COM'}
       </div>
     </div>
   </div>
@@ -370,7 +367,6 @@ const Variant4Layout: React.FC<LetterPreviewProps> = ({
         <img src="/company_logopng.png" alt="Logo" style={{ height: 38, width: 'auto', objectFit: 'contain', position: 'relative', zIndex: 1 }} />
       </div>
       <div style={{ display: 'flex', gap: 32, fontSize: 9, color: '#64748b', fontWeight: 600, marginBottom: 32, borderBottom: '1px solid #f1f5f9', paddingBottom: 16 }}>
-        <span>Ref: TL/HR/2026/{templateId}</span>
         <span>Date: {employee?.date || '[Date]'}</span>
       </div>
       <div style={{ fontSize: 11, lineHeight: 1.8, marginBottom: 24, background: '#f8fafc', padding: 16, borderRadius: 8 }}>
@@ -395,7 +391,7 @@ const Variant4Layout: React.FC<LetterPreviewProps> = ({
         </div>
       </div>
       <div style={{ position: 'absolute', bottom: 20, left: 80, right: 56, fontSize: 8, color: '#cbd5e1', borderTop: '1px solid #f1f5f9', paddingTop: 10 }}>
-        {employee?.company?.toUpperCase() || 'TRIPTAY LOGISTICS'} · {employee?.companyDetails?.email?.toUpperCase() || 'HR@TRIPTAY.COM'}
+        {employee?.company?.toUpperCase() || 'APAAR LOGISTICS'} · {employee?.companyDetails?.email?.toUpperCase() || 'HR@APAARLOGISTICS.COM'}
       </div>
     </div>
   </div>
@@ -411,9 +407,9 @@ const Variant5Layout: React.FC<LetterPreviewProps> = ({
     <div style={{ border: '3px double #0f172a', padding: '40px 52px 70px', minHeight: 'calc(100% - 32px)', position: 'relative', boxSizing: 'border-box' }}>
       <div style={{ textAlign: 'center', borderBottom: '1px solid #0f172a', paddingBottom: 24, marginBottom: 32 }}>
         <img src="/company_logopng.png" alt="Logo" style={{ height: 42, width: 'auto', margin: '0 auto 8px', display: 'block', objectFit: 'contain' }} />
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '5px', textTransform: 'uppercase', color: '#64748b' }}>{employee?.company || 'TRIPTAY LOGISTICS'}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '5px', textTransform: 'uppercase', color: '#64748b' }}>{employee?.company || 'APAAR LOGISTICS'}</div>
         <div style={{ fontSize: 20, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '2px', color: '#0f172a', marginTop: 12 }}>{title}</div>
-        <div style={{ fontSize: 9, color: '#64748b', marginTop: 6 }}>Ref: TL/HR/2026/{templateId} · Date: {employee?.date || '[Date]'}</div>
+        <div style={{ fontSize: 9, color: '#64748b', marginTop: 6 }}>Date: {employee?.date || '[Date]'}</div>
       </div>
       <div style={{ fontSize: 11, lineHeight: 1.9, marginBottom: 24 }}>
         <div><strong>To,</strong></div>
@@ -438,7 +434,7 @@ const Variant5Layout: React.FC<LetterPreviewProps> = ({
         </div>
       </div>
       <div style={{ position: 'absolute', bottom: 30, left: 52, right: 52, textAlign: 'center', fontSize: 8, color: '#94a3b8', borderTop: '1px solid #e2e8f0', paddingTop: 10 }}>
-        {employee?.company?.toUpperCase() || 'TRIPTAY LOGISTICS'} PVT. LTD. · {employee?.companyDetails?.email?.toUpperCase() || 'HR@TRIPTAY.COM'}
+        {employee?.company?.toUpperCase() || 'APAAR LOGISTICS'} PVT. LTD. · {employee?.companyDetails?.email?.toUpperCase() || 'HR@APAARLOGISTICS.COM'}
       </div>
     </div>
   </div>
