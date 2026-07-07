@@ -53,6 +53,55 @@ type AdminStats = {
   loan_distribution: Array<{ type: string; count: number }>;
 };
 
+type GovernanceRule = {
+  key: string;
+  label: string;
+  value: string;
+  description: string;
+};
+
+type AdminGovernance = {
+  rules: GovernanceRule[];
+  meta: {
+    working_days_this_cycle: number;
+    billing_cycle_days: number;
+    billing_cycle_start_day: number;
+    billing_cycle_end_day: number;
+    pf_ceiling_amount: number;
+    esic_wage_threshold: number;
+    basic_split_rate: number;
+    hra_split_rate: number;
+    pf_employee_rate: number;
+    pf_employer_rate: number;
+    esic_employee_rate: number;
+    esic_employer_rate: number;
+    pt_slabs: Array<{ from: number; to: number; amount: number }>;
+  };
+};
+
+type ComplianceCheck = {
+  title: string;
+  description: string;
+  status: boolean | null;
+  detail: string;
+};
+
+type AdminCompliance = {
+  checks: ComplianceCheck[];
+  summary: { total: number; passed: number; warnings: number; failed: number };
+};
+
+type ActivityItem = {
+  type: string;
+  message: string;
+  time: string;
+  timestamp: string;
+};
+
+type AdminActivity = {
+  activities: ActivityItem[];
+};
+
 const MONTH_LABELS: Record<number, string> = {
   1: "JAN", 2: "FEB", 3: "MAR", 4: "APR", 5: "MAY", 6: "JUN",
   7: "JUL", 8: "AUG", 9: "SEP", 10: "OCT", 11: "NOV", 12: "DEC"
@@ -71,16 +120,25 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<AdminSummary | null>(null);
   const [stats, setStats] = useState<AdminStats | null>(null);
+  const [governance, setGovernance] = useState<AdminGovernance | null>(null);
+  const [compliance, setCompliance] = useState<AdminCompliance | null>(null);
+  const [activity, setActivity] = useState<AdminActivity | null>(null);
 
   const fetchDashboard = useCallback(async () => {
     setLoading(true);
     try {
-      const [summaryData, statsData] = await Promise.all([
+      const [summaryData, statsData, governanceData, complianceData, activityData] = await Promise.all([
         apiGet<AdminSummary>("/dashboard/admin-summary"),
         apiGet<AdminStats>("/dashboard/admin-stats"),
+        apiGet<AdminGovernance>("/dashboard/admin-governance"),
+        apiGet<AdminCompliance>("/dashboard/admin-compliance"),
+        apiGet<AdminActivity>("/dashboard/admin-activity"),
       ]);
       setSummary(summaryData);
       setStats(statsData);
+      setGovernance(governanceData);
+      setCompliance(complianceData);
+      setActivity(activityData);
     } catch (_) {
       /* silently handle — UI shows skeleton/empty */
     }
@@ -105,6 +163,10 @@ export default function DashboardPage() {
   const monthlyAttendance = stats?.monthly_attendance ?? [];
   const leaveDistribution = stats?.leave_distribution ?? [];
   const loanDistribution = stats?.loan_distribution ?? [];
+  const governanceRules = governance?.rules ?? [];
+  const complianceChecks = compliance?.checks ?? [];
+  const complianceSummary = compliance?.summary ?? { total: 0, passed: 0, warnings: 0, failed: 0 };
+  const recentActivities = activity?.activities ?? [];
 
   // Build attendance trend for bar chart (last 4 months with data)
   const attendanceTrend = monthlyAttendance
@@ -362,7 +424,7 @@ export default function DashboardPage() {
           {/* Right Side: Operational Control & Audit Trail */}
           <div className="xl:col-span-4 space-y-6 md:space-y-8">
 
-            {/* Active Governance & Global Compliance Rules (static — policy constants) */}
+            {/* Active Governance Rules — live from /dashboard/admin-governance */}
             <Card className="border-none shadow-sm rounded-2xl bg-white p-5">
               <div className="flex items-center justify-between mb-5 border-b border-dashed border-slate-100 pb-3">
                 <h3 className="text-sm font-black text-slate-900 italic uppercase tracking-widest leading-none underline underline-offset-4 decoration-[#D9F99D] decoration-2">Active Governance Rules</h3>
@@ -370,23 +432,23 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-3.5">
-                {[
-                  { label: "Billing Cycle duration", val: "28 Days", desc: "Standard monthly cycles" },
-                  { label: "EPF Contribution Rate", val: "12.0%", desc: "Capped at INR 15k basic" },
-                  { label: "ESIC Contribution Rate", val: "0.75% / 3.25%", desc: "Employee / Employer split" },
-                  { label: "Professional Tax model", val: "MP Slabs", desc: "INR 208 / 167 / 125 slabs" },
-                  { label: "Basic CTC Split Rate", val: "40.0%", desc: "Fixed 40% of fixed gross" }
-                ].map((rule, idx) => (
-                  <div key={idx} className="flex justify-between items-start text-xs border-b border-slate-50 last:border-none pb-2 last:pb-0">
-                    <div>
-                      <span className="text-[8.5px] font-black uppercase text-slate-700 tracking-wider block">{rule.label}</span>
-                      <span className="text-[7.5px] text-slate-400 block mt-0.5 uppercase tracking-tight">{rule.desc}</span>
+                {loading ? (
+                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest text-center py-6">Loading governance rules…</p>
+                ) : governanceRules.length === 0 ? (
+                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest text-center py-6">No governance data available</p>
+                ) : (
+                  governanceRules.map((rule, idx) => (
+                    <div key={idx} className="flex justify-between items-start text-xs border-b border-slate-50 last:border-none pb-2 last:pb-0">
+                      <div>
+                        <span className="text-[8.5px] font-black uppercase text-slate-700 tracking-wider block">{rule.label}</span>
+                        <span className="text-[7.5px] text-slate-400 block mt-0.5 uppercase tracking-tight">{rule.description}</span>
+                      </div>
+                      <Badge className="bg-slate-100 text-slate-800 border-none font-black text-[8px] tracking-wider uppercase h-5.5 px-2 rounded-md shrink-0">
+                        {rule.value}
+                      </Badge>
                     </div>
-                    <Badge className="bg-slate-100 text-slate-800 border-none font-black text-[8px] tracking-wider uppercase h-5.5 px-2 rounded-md shrink-0">
-                      {rule.val}
-                    </Badge>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </Card>
 
@@ -475,35 +537,54 @@ export default function DashboardPage() {
               )}
             </Card>
 
-            {/* Compliance Audit (static — conceptual checks) */}
+            {/* Compliance Audit — live from /dashboard/admin-compliance */}
             <Card className="border-none shadow-sm rounded-2xl bg-white p-5">
               <div className="flex items-center justify-between mb-5 border-b border-dashed border-slate-100 pb-3">
-                <h3 className="text-sm font-black text-slate-900 italic uppercase tracking-widest leading-none underline underline-offset-4 decoration-[#D9F99D] decoration-2">Compliance Audit</h3>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 italic uppercase tracking-widest leading-none underline underline-offset-4 decoration-[#D9F99D] decoration-2">Compliance Audit</h3>
+                  {!loading && complianceSummary.total > 0 && (
+                    <p className="text-[7.5px] font-black text-slate-400 mt-2 uppercase tracking-wider">
+                      {complianceSummary.passed} passed • {complianceSummary.warnings} warnings • {complianceSummary.failed} failed
+                    </p>
+                  )}
+                </div>
                 <ShieldCheck className="h-4 w-4 text-emerald-500" />
               </div>
 
               <div className="space-y-4">
-                {[
-                  { title: "PF Statutory Slabs Passed", desc: "12% Contribution correctly capped.", status: true },
-                  { title: "ESIC Slabs Computed", desc: "0.75% Deducted on gross limits.", status: true },
-                  { title: "PT MP slabs Verified", desc: "Slabs mapped: ₹208 / ₹167 / ₹125.", status: true },
-                  { title: "Attendance & LWP synced", desc: "Leaves checked against attendance log.", status: true },
-                  { title: "Advance & Loans valid", desc: "No overlapping deductions active.", status: true }
-                ].map((check, i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="h-4 w-4 rounded-full bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5 border border-emerald-100">
-                      <CheckCircle2 className="h-3 w-3 text-emerald-600 fill-current" />
-                    </div>
-                    <div>
-                      <p className="text-[9.5px] font-black text-slate-900 uppercase tracking-wider">{check.title}</p>
-                      <p className="text-[8px] font-bold text-slate-400 mt-0.5 uppercase tracking-tight">{check.desc}</p>
-                    </div>
-                  </div>
-                ))}
+                {loading ? (
+                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest text-center py-8">Running compliance checks…</p>
+                ) : complianceChecks.length === 0 ? (
+                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest text-center py-8">No compliance data available</p>
+                ) : (
+                  complianceChecks.map((check, i) => {
+                    const passed = check.status === true;
+                    const warning = check.status === null;
+                    return (
+                      <div key={i} className="flex items-start gap-3">
+                        <div className={cn(
+                          "h-4 w-4 rounded-full flex items-center justify-center shrink-0 mt-0.5 border",
+                          passed ? "bg-emerald-50 border-emerald-100" : warning ? "bg-amber-50 border-amber-100" : "bg-rose-50 border-rose-100"
+                        )}>
+                          {passed ? (
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600 fill-current" />
+                          ) : (
+                            <AlertCircle className={cn("h-3 w-3", warning ? "text-amber-600" : "text-rose-600")} />
+                          )}
+                        </div>
+                        <div>
+                          <p className="text-[9.5px] font-black text-slate-900 uppercase tracking-wider">{check.title}</p>
+                          <p className="text-[8px] font-bold text-slate-400 mt-0.5 uppercase tracking-tight">{check.description}</p>
+                          <p className={cn("text-[7.5px] font-bold mt-0.5 uppercase tracking-tight", passed ? "text-emerald-500" : warning ? "text-amber-500" : "text-rose-500")}>{check.detail}</p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </Card>
 
-            {/* Real-time System Feed & Activity (placeholder — no backend activity-feed API) */}
+            {/* Recent Activities — live from /dashboard/admin-activity */}
             <Card className="border-none shadow-sm rounded-2xl bg-white p-5">
               <div className="flex items-center justify-between mb-5 border-b border-dashed border-slate-100 pb-3">
                 <h3 className="text-sm font-black text-slate-900 italic uppercase tracking-widest leading-none underline underline-offset-4 decoration-[#D9F99D] decoration-2">Recent Activities</h3>
@@ -511,20 +592,29 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-4">
-                {[
-                  { msg: "Dashboard data refreshed from live API endpoints.", time: "Just now" },
-                  { msg: `Active workforce count: ${activeEmployees} employees across ${departmentStats.length} departments.`, time: "Live" },
-                  { msg: `Today's attendance: ${todayPresent} present, ${todayAbsent} absent.`, time: "Live" },
-                  { msg: `${pendingLeaves} pending leave requests awaiting approval.`, time: "Live" }
-                ].map((act, i) => (
-                  <div key={i} className="flex items-start gap-2.5 pb-2 border-b border-dashed border-slate-100 last:border-none last:pb-0">
-                    <div className="h-1.5 w-1.5 rounded-full bg-slate-400 mt-1 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[8px] font-bold text-slate-700 leading-relaxed uppercase tracking-tight">{act.msg}</p>
-                      <span className="text-[7px] text-slate-400 uppercase tracking-widest font-black block mt-0.5">{act.time}</span>
+                {loading ? (
+                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest text-center py-8">Loading recent activities…</p>
+                ) : recentActivities.length === 0 ? (
+                  <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest text-center py-8">No recent activity</p>
+                ) : (
+                  recentActivities.map((act, i) => (
+                    <div key={i} className="flex items-start gap-2.5 pb-2 border-b border-dashed border-slate-100 last:border-none last:pb-0">
+                      <div className={cn(
+                        "h-1.5 w-1.5 rounded-full mt-1 shrink-0",
+                        act.type === "summary" ? "bg-indigo-500" :
+                          act.type === "attendance" ? "bg-emerald-500" :
+                            act.type === "leaves" ? "bg-amber-500" :
+                              act.type === "onboarding" ? "bg-blue-500" :
+                                act.type === "loan" ? "bg-rose-500" :
+                                  act.type === "payroll" ? "bg-cyan-500" : "bg-slate-400"
+                      )} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[8px] font-bold text-slate-700 leading-relaxed uppercase tracking-tight">{act.message}</p>
+                        <span className="text-[7px] text-slate-400 uppercase tracking-widest font-black block mt-0.5">{act.time}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </Card>
 

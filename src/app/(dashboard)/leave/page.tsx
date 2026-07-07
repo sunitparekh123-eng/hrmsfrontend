@@ -504,7 +504,7 @@ export default function LeavePage() {
                                         </div>
                                         <SheetTitle className="text-2xl font-black italic uppercase text-slate-900 tracking-tighter">Apply for Leave</SheetTitle>
                                         <SheetDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-loose">
-                                            Earned Leave (EL) — 1 leave per month. Max 1 leave per calendar month.
+                                            Earned Leave (EL) — 2 leaves per month. Max 2 leaves per calendar month.
                                         </SheetDescription>
                                     </SheetHeader>
                                     <div className="grid gap-8">
@@ -512,7 +512,7 @@ export default function LeavePage() {
                                             <div className="flex items-center gap-3 p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
                                                 <Info className="h-5 w-5 text-indigo-500 shrink-0" />
                                                 <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-wide leading-relaxed">
-                                                    You earn 1 EL per month. Unused leaves carry forward for 1 month, then lapse if still unused.
+                                                    You earn 2 EL per month. Unused leaves carry forward for up to 3 months, then lapse if still unused.
                                                 </p>
                                             </div>
                                             {isAdmin && (
@@ -721,7 +721,7 @@ export default function LeavePage() {
                     <div className="space-y-1">
                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-wide">Leave Accrual Rules</p>
                         <p className="text-[9px] font-bold text-slate-400 uppercase leading-relaxed">
-                            +1 EL earned per month • Unused leaves carry forward 1 month • If unused for 2 consecutive months, accrued leaves lapse to 0 • Admin-granted leaves never expire
+                            +2 EL earned per month • Unused leaves carry forward up to 3 months • If unused for 3 consecutive months, accrued leaves lapse to 0 • Admin-granted leaves never expire
                         </p>
                     </div>
                 </div>

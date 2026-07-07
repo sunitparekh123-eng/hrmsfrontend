@@ -479,7 +479,7 @@ export default function AttendancePage() {
         setTourSubmitting(true);
         try {
             await apiPost("/attendance/admin/tours", {
-                employeeId: Number(tourEmpId),
+                employeeId: /^\d+$/.test(tourEmpId) ? Number(tourEmpId) : tourEmpId,
                 title: tourTitle,
                 description: tourDescription || undefined,
                 fromLocation: tourFromLocation || undefined,
