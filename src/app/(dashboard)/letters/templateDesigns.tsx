@@ -198,7 +198,6 @@ const Variant1Layout: React.FC<LetterPreviewProps> = ({
           <img src="/company_logopng.png" alt="Logo" style={{ height: 42, width: 'auto', objectFit: 'contain' }} />
           <div>
             <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.5px', textTransform: 'uppercase', color: '#0f172a' }}>{employee?.company || 'APAAR LOGISTICS'}</div>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase', color: '#64748b', marginTop: 4 }}>Human Resources Department</div>
           </div>
         </div>
         <div style={{ textAlign: 'right', fontSize: 10, fontWeight: 600, color: '#475569', lineHeight: 1.8 }}>
@@ -228,7 +227,7 @@ const Variant1Layout: React.FC<LetterPreviewProps> = ({
             <div style={{ width: 120, borderTop: '2px solid #0f172a', marginBottom: 6, margin: '0 auto' }} />
           )}
           <div style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px' }}>{signatory ? signatory.name : 'Authorised Signatory'}</div>
-          <div style={{ fontSize: 9, color: '#64748b' }}>{signatory ? signatory.designation : 'HR Manager'}</div>
+          <div style={{ fontSize: 9, color: '#64748b' }}>{signatory?.designation || ''}</div>
         </div>
         <div style={{ textAlign: 'center', opacity: 0.3 }}>
           <div style={{ width: 120, borderTop: '2px solid #0f172a', marginBottom: 6 }} />

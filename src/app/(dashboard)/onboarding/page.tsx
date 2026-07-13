@@ -379,6 +379,7 @@ function OnboardingForm() {
         pfApplicable: "Yes",
         pfCeiling: "Yes",
         esicApplicable: "Yes",
+        ptApplicable: "Yes",
         pfContributionMode: "shared",
         pfEmployeeRate: "0.12",
         pfEmployerRate: "0.12",
@@ -517,6 +518,7 @@ function OnboardingForm() {
             esic_contribution_mode: formData.esicContributionMode,
             esic_employee_rate: parseFloat(formData.esicEmployeeRate) || 0.0075,
             esic_employer_rate: parseFloat(formData.esicEmployerRate) || 0.0325,
+            pt_applicable: formData.ptApplicable === "Yes",
             bank_name: formData.bankName || null,
             bank_account_number: formData.accountNo || null,
             ifsc_code: formData.ifsc || null,
@@ -748,7 +750,14 @@ function OnboardingForm() {
             }
         }
 
-        const totalDeductions = pfEmployee + esiEmployee;
+        let professionalTax = 0;
+        if (formData.ptApplicable === "Yes") {
+            if (fixedGross >= 15001 && fixedGross <= 25000) professionalTax = 125;
+            else if (fixedGross >= 25001 && fixedGross <= 33333) professionalTax = 167;
+            else if (fixedGross >= 33334) professionalTax = 208;
+        }
+
+        const totalDeductions = pfEmployee + esiEmployee + professionalTax;
         const netSalary = fixedGross - totalDeductions;
         const ctc = fixedGross + pfEmployer + esiEmployer;
 
@@ -783,6 +792,7 @@ function OnboardingForm() {
                             <div className="space-y-2 text-xs font-bold text-white/90">
                                 {pfEmployee > 0 && <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded-lg"><span className="text-white/80">PF Contribution</span><span className="text-red-400">- ₹{pfEmployee.toLocaleString('en-IN')}</span></div>}
                                 {esiEmployee > 0 && <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded-lg"><span className="text-white/80">ESIC Contribution</span><span className="text-red-400">- ₹{esiEmployee.toLocaleString('en-IN')}</span></div>}
+                                {professionalTax > 0 && <div className="flex justify-between items-center bg-slate-800/50 p-2 rounded-lg"><span className="text-white/80">PT Contribution</span><span className="text-red-400">- ₹{professionalTax.toLocaleString('en-IN')}</span></div>}
                                 <div className="flex justify-between items-center font-black text-white p-2"><span className="text-white">Total Deductions</span><span>₹{totalDeductions.toLocaleString('en-IN')}</span></div>
                             </div>
                         </div>
@@ -1281,6 +1291,19 @@ function OnboardingForm() {
                                                     className="w-full h-12 bg-blue-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none text-blue-900"
                                                     value={formData.esicApplicable}
                                                     onChange={(e) => updateField("esicApplicable", e.target.value)}
+                                                >
+                                                    <option value="Yes">Yes</option>
+                                                    <option value="No">No</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">
+                                                    PT Applicable
+                                                </Label>
+                                                <select
+                                                    className="w-full h-12 bg-indigo-50 border-none rounded-xl px-5 font-black text-[10px] uppercase tracking-widest outline-none text-indigo-900"
+                                                    value={formData.ptApplicable}
+                                                    onChange={(e) => updateField("ptApplicable", e.target.value)}
                                                 >
                                                     <option value="Yes">Yes</option>
                                                     <option value="No">No</option>

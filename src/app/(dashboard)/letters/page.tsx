@@ -110,7 +110,8 @@ export default function LettersPage() {
   const [candidateData, setCandidateData] = useState({
     name: '', email: '', designation: '', department: '', office: '', company: '', date_of_joining: '', fixed_gross: '',
     pf_applicable: true, pf_ceiling: true, pf_contribution_mode: 'shared', pf_employer_rate: 0.12, pf_employee_rate: 0.12,
-    esic_applicable: true, esic_contribution_mode: 'shared', esic_employer_rate: 0.0325, esic_employee_rate: 0.0075
+    esic_applicable: true, esic_contribution_mode: 'shared', esic_employer_rate: 0.0325, esic_employee_rate: 0.0075,
+    pt_applicable: true
   });
 
   // Action state
@@ -816,6 +817,11 @@ export default function LettersPage() {
                               )}
                             </div>
                           )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <label style={{ fontSize: 9, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4, width: '100px' }}>
+                            <input type="checkbox" checked={candidateData.pt_applicable} onChange={e => setCandidateData({...candidateData, pt_applicable: e.target.checked})} /> PT Applicable
+                          </label>
                         </div>
                       </div>
                     </div>

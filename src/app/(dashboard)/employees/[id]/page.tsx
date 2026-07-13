@@ -516,6 +516,14 @@ export default function EmployeeProfilePage() {
                                         )}>
                                             ESIC {rawEmployee?.esic_applicable ? "(Yes)" : "(No)"}
                                         </Badge>
+                                        <Badge className={cn(
+                                            "border-none font-black text-[7px] uppercase tracking-widest px-2",
+                                            currentSalary?.pt_applicable !== false
+                                                ? "bg-slate-900 text-white"
+                                                : "bg-slate-200 text-slate-500"
+                                        )}>
+                                            PT {currentSalary?.pt_applicable !== false ? "(Yes)" : "(No)"}
+                                        </Badge>
                                     </div>
                                 </div>
                             </div>

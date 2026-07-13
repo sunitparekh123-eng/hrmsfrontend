@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/context/ThemeContext";
+import { apiGet, apiPut } from "@/lib/api-client";
 import {
     Select,
     SelectContent,
@@ -52,6 +53,60 @@ export default function SettingsPage() {
     const { fontSize, setFontSize, contrastLevel, setContrastLevel } = useTheme();
     const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
     const [selectedHoliday, setSelectedHoliday] = useState<any>(null);
+    const [ptSlabs, setPtSlabs] = useState<any[]>([]);
+    const [ptLoading, setPtLoading] = useState(false);
+    const [ptSaving, setPtSaving] = useState(false);
+    const [ptMessage, setPtMessage] = useState("");
+
+    useEffect(() => {
+        async function fetchSlabs() {
+            try {
+                setPtLoading(true);
+                const res = await apiGet<any>("/config/pt-slabs");
+                const data = res?.data || res || [];
+                setPtSlabs(Array.isArray(data) ? data : []);
+            } catch (err) {
+                console.error("Failed to fetch PT slabs:", err);
+            } finally {
+                setPtLoading(false);
+            }
+        }
+        fetchSlabs();
+    }, []);
+
+    const handleAddSlab = () => {
+        setPtSlabs([...ptSlabs, { from: 0, to: null, amount: 0 }]);
+    };
+
+    const handleRemoveSlab = (idx: number) => {
+        setPtSlabs(ptSlabs.filter((_, i) => i !== idx));
+    };
+
+    const handleUpdateSlab = (idx: number, key: string, val: any) => {
+        const next = [...ptSlabs];
+        next[idx] = { ...next[idx], [key]: val };
+        setPtSlabs(next);
+    };
+
+    const handleSaveSlabs = async () => {
+        try {
+            setPtSaving(true);
+            setPtMessage("");
+            const parsed = ptSlabs.map(s => ({
+                from: Number(s.from),
+                to: s.to === "" || s.to === null || s.to === "null" || s.to === undefined ? null : Number(s.to),
+                amount: Number(s.amount)
+            }));
+            await apiPut("/config/pt-slabs", { slabs: parsed });
+            setPtMessage("PT Slabs saved successfully!");
+            setTimeout(() => setPtMessage(""), 3000);
+        } catch (err: any) {
+            console.error("Failed to save PT slabs:", err);
+            setPtMessage(err.message || "Failed to save PT slabs.");
+        } finally {
+            setPtSaving(false);
+        }
+    };
 
     const handleOpenModal = (holiday?: any) => {
         setSelectedHoliday(holiday || null);
@@ -83,6 +138,7 @@ export default function SettingsPage() {
                             { value: 'notifications', label: 'Notifications', icon: Bell },
                             { value: 'security', label: 'Security', icon: Shield },
                             { value: 'system', label: 'System', icon: SettingsIcon },
+                            { value: 'pt_slabs', label: 'PT Slabs', icon: CreditCard },
                             { value: 'holidays', label: 'Company Holidays', icon: Globe },
                         ].map((tab) => (
                             <TabsTrigger
@@ -330,6 +386,98 @@ export default function SettingsPage() {
                             <Button className="h-12 px-10 rounded-xl bg-white text-slate-900 hover:bg-slate-50 font-black text-[9px] uppercase tracking-widest shadow-xl transition-all">Contact Support</Button>
                         </div>
                     </div>
+                </TabsContent>
+
+                <TabsContent value="pt_slabs" className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    {/* Professional Tax Slabs Card */}
+                    <Card className="border-none shadow-sm rounded-3xl bg-white p-8 space-y-8">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <h3 className="text-lg font-black italic tracking-tighter uppercase flex items-center gap-3">
+                                    <SettingsIcon className="h-5 w-5 text-indigo-400" /> Professional Tax (PT) Slabs
+                                </h3>
+                                <p className="text-[8px] font-bold text-slate-300 mt-2 uppercase tracking-widest italic">
+                                    Configure slab rates for Professional Tax (TDS) calculations
+                                </p>
+                            </div>
+                            <Button
+                                onClick={handleAddSlab}
+                                className="h-9 px-4 rounded-xl bg-slate-900 text-[#D9F99D] hover:bg-black font-black text-[9px] uppercase tracking-widest shadow-xl transition-all"
+                            >
+                                + Add New Slab
+                            </Button>
+                        </div>
+
+                        {ptLoading ? (
+                            <p className="text-xs font-bold text-slate-400">Loading slabs...</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead>
+                                        <tr className="bg-slate-50 border-b border-slate-100">
+                                            <th className="py-4 px-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Gross From (₹)</th>
+                                            <th className="py-4 px-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Gross To (₹)</th>
+                                            <th className="py-4 px-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Monthly Tax Amount (₹)</th>
+                                            <th className="py-4 px-6 text-right text-[9px] font-black text-slate-400 uppercase tracking-widest">Controls</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {ptSlabs.map((slab, idx) => (
+                                            <tr key={idx} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                                                <td className="py-4 px-6">
+                                                    <Input
+                                                        type="number"
+                                                        value={slab.from}
+                                                        onChange={(e) => handleUpdateSlab(idx, "from", parseFloat(e.target.value))}
+                                                        className="h-9 w-32 rounded-lg bg-slate-50 border-none font-bold text-xs"
+                                                    />
+                                                </td>
+                                                <td className="py-4 px-6">
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="No Upper Limit"
+                                                        value={slab.to === null || slab.to === undefined ? "" : slab.to}
+                                                        onChange={(e) => handleUpdateSlab(idx, "to", e.target.value === "" ? null : parseFloat(e.target.value))}
+                                                        className="h-9 w-32 rounded-lg bg-slate-50 border-none font-bold text-xs"
+                                                    />
+                                                </td>
+                                                <td className="py-4 px-6">
+                                                    <Input
+                                                        type="number"
+                                                        value={slab.amount}
+                                                        onChange={(e) => handleUpdateSlab(idx, "amount", parseFloat(e.target.value))}
+                                                        className="h-9 w-32 rounded-lg bg-slate-50 border-none font-bold text-xs"
+                                                    />
+                                                </td>
+                                                <td className="py-4 px-6 text-right">
+                                                    <Button
+                                                        onClick={() => handleRemoveSlab(idx)}
+                                                        variant="ghost"
+                                                        className="h-8 px-3 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 flex items-center justify-center p-0 ml-auto font-black text-[9px] uppercase tracking-widest"
+                                                    >
+                                                        Remove
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                            {ptMessage && (
+                                <p className="text-[10px] font-black uppercase text-emerald-500 tracking-widest">{ptMessage}</p>
+                            )}
+                            <Button
+                                onClick={handleSaveSlabs}
+                                disabled={ptSaving}
+                                className="bg-[#D9F99D] text-slate-900 hover:bg-[#c8ea8a] font-black text-[9px] uppercase tracking-widest px-8 h-11 rounded-xl shadow-xl transition-all ml-auto flex items-center gap-2"
+                            >
+                                <Save className="h-3.5 w-3.5" /> {ptSaving ? "Saving..." : "Save PT Slabs"}
+                            </Button>
+                        </div>
+                    </Card>
                 </TabsContent>
                 <TabsContent value="holidays" className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <Card className="border-none shadow-sm rounded-3xl bg-white overflow-hidden p-1.5">
