@@ -93,19 +93,23 @@ export default function AttendancePage() {
     const [selectedStatus, setSelectedStatus] = useState<"All" | "Present" | "Absent" | "Late">("All");
     const [companies, setCompanies] = useState<{ id: number; name: string }[]>([]);
     const [offices, setOffices] = useState<{ id: number; name: string }[]>([]);
+    const [departments, setDepartments] = useState<string[]>([]);
+    const [selectedDepartment, setSelectedDepartment] = useState("");
     const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    // Fetch companies and offices for filter dropdowns
+    // Fetch companies, offices and departments for filter dropdowns
     useEffect(() => {
         Promise.all([
             apiGet<{ id: number; name: string }[]>("/companies"),
             apiGet<{ id: number; name: string }[]>("/offices"),
+            apiGet<string[]>("/leave/departments"),
         ])
-            .then(([compRes, offRes]) => {
+            .then(([compRes, offRes, deptRes]) => {
                 setCompanies(Array.isArray(compRes) ? compRes : []);
                 setOffices(Array.isArray(offRes) ? offRes : []);
+                setDepartments(Array.isArray(deptRes) ? deptRes : []);
             })
-            .catch(() => { setCompanies([]); setOffices([]); });
+            .catch(() => { setCompanies([]); setOffices([]); setDepartments([]); });
     }, []);
 
     // Debounced search
@@ -145,7 +149,7 @@ export default function AttendancePage() {
     const exportMonthlyToCSV = (rows: any[], filename: string) => {
         if (!rows || rows.length === 0) return;
         const daysInMonth = rows[0]?.grid?.length || 31;
-        const baseHeaders = ["Emp Code", "Name", "Role", "Hub", "Company", "Present", "Week Off", "Leave", "Holiday", "Tour", "Absent"];
+        const baseHeaders = ["Emp Code", "Name", "Role", "Department", "Hub", "Company", "Present", "Week Off", "Leave", "Holiday", "Tour", "Absent"];
         const dayHeaders = Array.from({ length: daysInMonth }, (_, i) => {
             const date = cycleDates[i];
             if (date) {
@@ -180,6 +184,7 @@ export default function AttendancePage() {
                     row.id ?? "",
                     row.name ?? "",
                     row.role ?? "",
+                    row.department ?? "---",
                     row.hub ?? "",
                     row.company ?? "",
                     row.present ?? 0,
@@ -322,6 +327,39 @@ export default function AttendancePage() {
         }, 400);
     };
 
+    // Export Monthly/Live/History Attendance Dialog State
+    const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+    const [exportDeptSelection, setExportDeptSelection] = useState("All");
+    const [exportingMonthly, setExportingMonthly] = useState(false);
+    const [exportingHistory, setExportingHistory] = useState(false);
+    const [exportType, setExportType] = useState<"live" | "monthly" | "history">("monthly");
+
+    const handleMonthlyExport = async () => {
+        setIsExportDialogOpen(false);
+        setExportingMonthly(true);
+        try {
+            const data: any = await apiGet("/attendance/admin/monthly-all", {
+                month: selectedMonth + 1,
+                year: selectedYear,
+                company_id: selectedCompanyId || undefined,
+                office_id: selectedOfficeId || undefined,
+                search: monthlyDebouncedSearch || undefined,
+                department: exportDeptSelection === "All" ? undefined : exportDeptSelection,
+            });
+            const rowsToExport = data.rows || [];
+            if (rowsToExport.length === 0) {
+                alert("No records found to export.");
+                return;
+            }
+            exportMonthlyToCSV(rowsToExport, `Monthly_Attendance_Report_${exportDeptSelection.replace(/\s/g, "_")}`);
+        } catch (err) {
+            console.error("Failed to export monthly attendance:", err);
+            alert("Failed to export monthly attendance.");
+        } finally {
+            setExportingMonthly(false);
+        }
+    };
+
     // Fetch live attendance
     const fetchLiveAttendance = useCallback(async () => {
         setLiveLoading(true);
@@ -333,6 +371,7 @@ export default function AttendancePage() {
                 search: debouncedSearch || undefined,
                 page: currentPage,
                 limit: itemsPerPage,
+                department: selectedDepartment || undefined,
             });
             setStats(data.stats || { total: 0, present: 0, absent: 0, late: 0 });
             setAttendanceLogs(data.rows || []);
@@ -343,13 +382,14 @@ export default function AttendancePage() {
         } finally {
             setLiveLoading(false);
         }
-    }, [selectedCompanyId, selectedOfficeId, selectedStatus, debouncedSearch, currentPage]);
+    }, [selectedCompanyId, selectedOfficeId, selectedStatus, debouncedSearch, currentPage, selectedDepartment]);
 
-    // Export ALL live attendance records (not just the current page).
+    // Export ALL live attendance records for a specific department (not just the current page).
     // Loops through every page with the backend's max allowed limit (100)
     // so the downloaded CSV contains every matching employee regardless of
     // which page is currently open. No backend restart required.
-    const exportLiveAttendance = async () => {
+    const exportLiveAttendance = async (selectedDept: string) => {
+        setIsExportDialogOpen(false);
         setExportingLive(true);
         try {
             const baseParams = {
@@ -357,6 +397,7 @@ export default function AttendancePage() {
                 office_id: selectedOfficeId || undefined,
                 status: selectedStatus === "All" ? undefined : selectedStatus,
                 search: debouncedSearch || undefined,
+                department: selectedDept === "All" ? undefined : selectedDept,
             };
             // Fetch the first page to discover total page count.
             const first: any = await apiGet("/attendance/admin/live", {
@@ -379,12 +420,13 @@ export default function AttendancePage() {
                 });
             }
             if (allRows.length === 0) {
-                setExportingLive(false);
+                alert("No records found to export.");
                 return;
             }
-            exportToCSV(allRows, "live_attendance");
+            exportToCSV(allRows, `Live_Attendance_Report_${selectedDept.replace(/\s/g, "_")}`);
         } catch (err) {
             console.error("Failed to export live attendance:", err);
+            alert("Failed to export live attendance.");
         } finally {
             setExportingLive(false);
         }
@@ -402,6 +444,7 @@ export default function AttendancePage() {
                 company_id: selectedCompanyId || undefined,
                 office_id: selectedOfficeId || undefined,
                 search: historyDebouncedSearch || undefined,
+                department: selectedDepartment || undefined,
             });
             setHistoryData(data.rows || []);
             setHistoryPagination(data.pagination || { total: 0, totalPages: 0 });
@@ -411,7 +454,55 @@ export default function AttendancePage() {
         } finally {
             setHistoryLoading(false);
         }
-    }, [historyPage, historyFrom, historyTo, selectedCompanyId, selectedOfficeId, historyDebouncedSearch]);
+    }, [historyPage, historyFrom, historyTo, selectedCompanyId, selectedOfficeId, historyDebouncedSearch, selectedDepartment]);
+
+    // Export ALL history attendance records for a specific department (not just the current page).
+    // Loops through every page with the backend's max allowed limit (100)
+    // so the downloaded CSV contains every matching employee.
+    const exportHistoryAttendance = async (selectedDept: string) => {
+        setIsExportDialogOpen(false);
+        setExportingHistory(true);
+        try {
+            const baseParams = {
+                from: historyFrom || undefined,
+                to: historyTo || undefined,
+                company_id: selectedCompanyId || undefined,
+                office_id: selectedOfficeId || undefined,
+                search: historyDebouncedSearch || undefined,
+                department: selectedDept === "All" ? undefined : selectedDept,
+            };
+            // Fetch the first page to discover total page count.
+            const first: any = await apiGet("/attendance/admin/history-all", {
+                ...baseParams,
+                page: 1,
+                limit: 100,
+            });
+            let allRows: any[] = first.rows || [];
+            const totalPages = first.pagination?.totalPages || 1;
+            // Fetch any remaining pages in parallel.
+            if (totalPages > 1) {
+                const remaining = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+                const results = await Promise.all(
+                    remaining.map((p) =>
+                        apiGet("/attendance/admin/history-all", { ...baseParams, page: p, limit: 100 })
+                    )
+                );
+                results.forEach((r: any) => {
+                    allRows = allRows.concat(r.rows || []);
+                });
+            }
+            if (allRows.length === 0) {
+                alert("No records found to export.");
+                return;
+            }
+            exportToCSV(allRows, `Attendance_History_Report_${selectedDept.replace(/\s/g, "_")}`);
+        } catch (err) {
+            console.error("Failed to export history attendance:", err);
+            alert("Failed to export history attendance.");
+        } finally {
+            setExportingHistory(false);
+        }
+    };
 
     // Fetch monthly grid
     const fetchMonthly = useCallback(async () => {
@@ -423,6 +514,7 @@ export default function AttendancePage() {
                 company_id: selectedCompanyId || undefined,
                 office_id: selectedOfficeId || undefined,
                 search: monthlyDebouncedSearch || undefined,
+                department: selectedDepartment || undefined,
             });
             setMonthlyRows(data.rows || []);
             if (data.daysInMonth) setMonthlyDaysInMonth(data.daysInMonth);
@@ -431,12 +523,12 @@ export default function AttendancePage() {
         } finally {
             setMonthlyLoading(false);
         }
-    }, [selectedMonth, selectedYear, selectedCompanyId, selectedOfficeId, monthlyDebouncedSearch]);
+    }, [selectedMonth, selectedYear, selectedCompanyId, selectedOfficeId, monthlyDebouncedSearch, selectedDepartment]);
 
     // Load data on tab switch
     useEffect(() => { if (activeTab === "live") fetchLiveAttendance(); }, [activeTab, fetchLiveAttendance]);
     useEffect(() => { if (activeTab === "history") { setHistoryPage(1); fetchHistory(1); } }, [activeTab]);
-    useEffect(() => { if (activeTab === "history") { setHistoryPage(1); fetchHistory(1); } }, [historyFrom, historyTo, selectedCompanyId, selectedOfficeId, historyDebouncedSearch]);
+    useEffect(() => { if (activeTab === "history") { setHistoryPage(1); fetchHistory(1); } }, [historyFrom, historyTo, selectedCompanyId, selectedOfficeId, historyDebouncedSearch, selectedDepartment]);
     useEffect(() => { if (activeTab === "monthly") fetchMonthly(); }, [activeTab, selectedMonth, selectedYear, fetchMonthly]);
 
     // Manual entry submit
@@ -659,6 +751,22 @@ export default function AttendancePage() {
                                             <option value="Late">Late</option>
                                         </select>
                                     </div>
+                                    <div className="flex items-center gap-2 bg-slate-50 px-3 shrink-0 rounded-xl border border-slate-100">
+                                        <Users2 className="h-3.5 w-3.5 text-slate-400" />
+                                        <select
+                                            className="bg-transparent border-none text-[9px] font-black uppercase tracking-widest outline-none pr-2 h-10 cursor-pointer"
+                                            value={selectedDepartment}
+                                            onChange={(e) => {
+                                                setSelectedDepartment(e.target.value);
+                                                setCurrentPage(1);
+                                            }}
+                                        >
+                                            <option value="">All Departments</option>
+                                            {departments.map((d) => (
+                                                <option key={d} value={d}>{d}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                     <div className="relative group shrink-0">
                                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300 group-focus-within:text-slate-900 transition-colors" />
                                         <Input
@@ -671,7 +779,16 @@ export default function AttendancePage() {
                                     <Button variant="outline" className="h-10 w-10 p-0 shrink-0 rounded-xl border-slate-100 hover:bg-slate-50 transition-all" onClick={() => fetchLiveAttendance()}>
                                         <RefreshCw className={cn("h-4 w-4 text-slate-400", liveLoading && "animate-spin")} />
                                     </Button>
-                                    <Button variant="outline" className="h-10 px-4 shrink-0 rounded-xl border-slate-100 font-black text-[9px] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed" onClick={exportLiveAttendance} disabled={exportingLive}>
+                                    <Button
+                                        variant="outline"
+                                        className="h-10 px-4 shrink-0 rounded-xl border-slate-100 font-black text-[9px] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+                                        onClick={() => {
+                                            setExportType("live");
+                                            setExportDeptSelection(selectedDepartment || "All");
+                                            setIsExportDialogOpen(true);
+                                        }}
+                                        disabled={exportingLive}
+                                    >
                                         {exportingLive ? (
                                             <svg className="animate-spin h-4 w-4 mr-2 text-emerald-500" viewBox="0 0 24 24">
                                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -878,6 +995,15 @@ export default function AttendancePage() {
                                                 ))}
                                             </select>
                                         </div>
+                                        <div className="flex items-center gap-2 bg-slate-50 px-3 h-10 rounded-xl border border-slate-200 shadow-sm">
+                                            <Users2 className="h-3.5 w-3.5 text-indigo-400" />
+                                            <select value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)} className="bg-transparent border-none text-[9px] font-black uppercase outline-none pr-2 h-full">
+                                                <option value="">All Departments</option>
+                                                {departments.map((d) => (
+                                                    <option key={d} value={d}>{d}</option>
+                                                ))}
+                                            </select>
+                                        </div>
 
                                         {/* Search Input */}
                                         <div className="relative group min-w-[200px]">
@@ -896,8 +1022,25 @@ export default function AttendancePage() {
                                         <Button onClick={() => { setHistoryPage(1); fetchHistory(1); }} className="h-10 px-6 rounded-xl bg-slate-900 text-white font-black text-[9px] uppercase tracking-widest shadow-lg hover:bg-black transition-all">
                                             {historyLoading ? "Loading..." : "Fetch Data"}
                                         </Button>
-                                        <Button variant="outline" className="h-10 w-10 rounded-xl border-slate-200 bg-white shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center" onClick={() => exportToCSV(historyData, "attendance_history")} title="Export CSV">
-                                            <Download className="h-4 w-4 text-slate-400" />
+                                        <Button
+                                            variant="outline"
+                                            className="h-10 w-10 rounded-xl border-slate-200 bg-white shadow-sm hover:bg-slate-50 transition-all flex items-center justify-center disabled:opacity-50"
+                                            onClick={() => {
+                                                setExportType("history");
+                                                setExportDeptSelection(selectedDepartment || "All");
+                                                setIsExportDialogOpen(true);
+                                            }}
+                                            disabled={exportingHistory}
+                                            title="Export CSV"
+                                        >
+                                            {exportingHistory ? (
+                                                <svg className="animate-spin h-4 w-4 text-emerald-500" viewBox="0 0 24 24">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                </svg>
+                                            ) : (
+                                                <Download className="h-4 w-4 text-slate-400" />
+                                            )}
                                         </Button>
                                     </div>
                                 </div>
@@ -1172,6 +1315,19 @@ export default function AttendancePage() {
                                                 ))}
                                             </select>
                                         </div>
+                                        <div className="flex items-center gap-2 bg-slate-50 px-3 h-9 rounded-xl border border-slate-100">
+                                            <Users2 className="h-3.5 w-3.5 text-slate-400" />
+                                            <select
+                                                value={selectedDepartment}
+                                                onChange={(e) => setSelectedDepartment(e.target.value)}
+                                                className="bg-transparent border-none text-[9px] font-black uppercase outline-none pr-2 h-full cursor-pointer"
+                                            >
+                                                <option value="">All Departments</option>
+                                                {departments.map((d) => (
+                                                    <option key={d} value={d}>{d}</option>
+                                                ))}
+                                            </select>
+                                        </div>
                                         <div className="relative group">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-300 group-focus-within:text-slate-900 transition-colors" />
                                             <Input
@@ -1181,8 +1337,29 @@ export default function AttendancePage() {
                                                 onChange={(e) => handleMonthlySearchChange(e.target.value)}
                                             />
                                         </div>
-                                        <Button variant="outline" className="h-9 px-4 rounded-xl border-slate-100 font-black text-[9px] uppercase tracking-widest" onClick={() => exportMonthlyToCSV(monthlyRows, "monthly_attendance")}>
-                                            <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-500" /> Export
+                                        <Button
+                                            variant="outline"
+                                            className="h-9 px-4 rounded-xl border-slate-100 font-black text-[9px] uppercase tracking-widest disabled:opacity-50"
+                                            onClick={() => {
+                                                setExportType("monthly");
+                                                setExportDeptSelection(selectedDepartment || "All");
+                                                setIsExportDialogOpen(true);
+                                            }}
+                                            disabled={exportingMonthly}
+                                        >
+                                            {exportingMonthly ? (
+                                                <span className="flex items-center gap-1">
+                                                    <svg className="animate-spin h-3.5 w-3.5 text-emerald-500" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                    </svg>
+                                                    Exporting...
+                                                </span>
+                                            ) : (
+                                                <>
+                                                    <FileSpreadsheet className="h-4 w-4 mr-2 text-emerald-500" /> Export
+                                                </>
+                                            )}
                                         </Button>
                                     </div>
                                 </div>
@@ -1552,6 +1729,58 @@ export default function AttendancePage() {
                             <Globe className="h-3.5 w-3.5" />
                             Open in Google Maps
                             <ArrowUpRight className="h-3 w-3" />
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+            {/* Export Department Dialog */}
+            <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
+                <DialogContent className="sm:max-w-[420px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden">
+                    <DialogHeader className="p-8 pb-4">
+                        <DialogTitle className="text-xl font-black italic uppercase text-slate-900 tracking-tighter flex items-center gap-2">
+                            <Download className="h-5 w-5 text-indigo-600" /> Export {exportType === "live" ? "Live Attendance" : exportType === "history" ? "Attendance History" : "Monthly Report"}
+                        </DialogTitle>
+                        <DialogDescription className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
+                            Choose department data to include in the Excel file
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="p-8 pt-0 space-y-4">
+                        <div className="space-y-2">
+                            <Label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Department</Label>
+                            <div className="flex items-center gap-2 bg-slate-50 px-3 h-12 rounded-xl border border-slate-100">
+                                <Users2 className="h-3.5 w-3.5 text-slate-400" />
+                                <select
+                                    value={exportDeptSelection}
+                                    onChange={(e) => setExportDeptSelection(e.target.value)}
+                                    className="bg-transparent border-none text-xs font-bold outline-none w-full h-full cursor-pointer"
+                                >
+                                    <option value="All">All Departments (Combined)</option>
+                                    {departments.map((d) => (
+                                        <option key={d} value={d}>{d}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-6 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3">
+                        <Button variant="ghost" onClick={() => setIsExportDialogOpen(false)} className="text-[9px] font-black uppercase tracking-widest text-slate-500 rounded-xl hover:bg-slate-200">
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                if (exportType === "live") {
+                                    exportLiveAttendance(exportDeptSelection);
+                                } else if (exportType === "history") {
+                                    exportHistoryAttendance(exportDeptSelection);
+                                } else {
+                                    handleMonthlyExport();
+                                }
+                            }}
+                            className="bg-slate-900 hover:bg-black text-[#D9F99D] font-black uppercase text-[9px] tracking-widest rounded-xl px-6 h-10 shadow-md"
+                        >
+                            Export Excel
                         </Button>
                     </div>
                 </DialogContent>
